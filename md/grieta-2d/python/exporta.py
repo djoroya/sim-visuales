@@ -52,6 +52,51 @@ def lee_volcados(ruta: Path, cada: int = 1):
         yield paso, datos[np.argsort(datos[:, 0])]
 
 
+def agrupa(v: np.ndarray, salto_min: float = 0.25):
+    """Numera los grupos de un conjunto de valores casi coincidentes.
+
+    Devuelve (indice de grupo por elemento, separacion tipica entre grupos).
+    Se ordena, se corta donde hay un salto y se numera: asi los grupos salen
+    de los datos y no de una formula.
+    """
+    orden = np.argsort(v, kind="stable")
+    vs = v[orden]
+    d = np.diff(vs)
+    # las diferencias dentro de un grupo son casi cero; las de entre grupos,
+    # del orden del espaciado. La mediana de las grandes es ese espaciado.
+    grandes = d[d > salto_min]
+    paso = float(np.median(grandes)) if grandes.size else 1.0
+    corte = np.r_[0, np.cumsum(d > 0.5 * paso)]
+    idx = np.empty_like(corte)
+    idx[orden] = corte
+    return idx, paso
+
+
+def indices_red(p0: np.ndarray):
+    """Indices (fila, columna) de cada atomo en la red, medidos del volcado.
+
+    IMPORTANTE: no se puede usar el espaciado del cristal sin deformar. La
+    lamina se estira (eps_yy = 0,04), asi que las filas estan a 1,011 sigma y
+    no a 0,972: redondear con el valor teorico desfasa una fila cada ~25 y el
+    submuestreo deja una banda sin atomos, que en el visor se ve como una
+    raya oscura a lo largo de toda la imagen.
+    """
+    fila, _ = agrupa(p0[:, 1])
+    col = np.zeros(p0.shape[0], dtype=np.int64)
+    # dentro de cada fila, la columna por posicion: asi los huecos de la
+    # entalla no corren la numeracion
+    x = p0[:, 0]
+    for f in np.unique(fila):
+        m = fila == f
+        xf = x[m]
+        if xf.size < 2:
+            continue
+        d = np.diff(np.sort(xf))
+        paso = float(np.median(d[d > 0.25])) if (d > 0.25).any() else 1.0
+        col[m] = np.round((xf - xf.min()) / paso).astype(np.int64)
+    return fila, col
+
+
 def main() -> int:
     raiz = Path(__file__).resolve().parents[1]
     ap = argparse.ArgumentParser()
@@ -101,11 +146,8 @@ def main() -> int:
     # subred triangular de parametro 2a, que se ve igual de ordenada. Tomar
     # uno de cada N por indice dejaria huecos irregulares, que cantan.
     if args.submuestreo > 1:
-        a0 = 2 ** (1 / 6)
-        p0 = pos[0]
-        fila = np.round((p0[:, 1] - p0[:, 1].min()) / (a0 * np.sqrt(3) / 2))
-        col = np.round((p0[:, 0] - p0[:, 0].min()) / a0)
         k = int(round(np.sqrt(args.submuestreo)))
+        fila, col = indices_red(pos[0])
         sel = np.where((fila % k == 0) & (col % k == 0))[0]
         pos = pos[:, sel]
         sig = sig[:, sel]

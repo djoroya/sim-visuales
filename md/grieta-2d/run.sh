@@ -81,6 +81,7 @@ salidas() {
 
   paso "datos del visor"
   "$PY" python/exporta.py --cada-frame 4 --submuestreo 4 --smax "$SMAX"
+  "$PY" python/test_exporta.py
   cp salida/grieta.crack salida/grieta-meta.json web/
 
   printf '\n'

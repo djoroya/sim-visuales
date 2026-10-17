@@ -49,7 +49,17 @@ cortar el cristal los átomos del borde no sienten fuerza neta y la superficie
 **no se relaja**. El valor es justo el de los enlaces rotos, `|φ(a)|/a` por
 cara. En un cristal con más vecinos esto no pasaría y habría que medirla.
 
-Dos cosas me costaron tiempo y están en el código comentadas: en `units lj`
+Una tercera, que encontró el agente que escribía el post: el submuestreo del
+visor numeraba las filas con el espaciado del cristal **sin deformar**
+(0,972 σ) cuando la lámina está estirada un 4 % y sus filas están a 1,011 σ.
+El redondeo se desfasaba poco a poco y cada ~25 filas doblaba una y se saltaba
+otra, lo que en el visor salía como una raya oscura horizontal de lado a lado.
+Ahora los índices de red se **miden del propio volcado** (`indices_red`), y
+`python/test_exporta.py` comprueba que las filas y columnas exportadas están
+a distancia uniforme: con el fichero defectuoso daba 50 % de desviación y un
+hueco doble; ahora, 1 %.
+
+Dos cosas más me costaron tiempo y están en el código comentadas: en `units lj`
 el argumento de `lattice` es la **densidad reducida**, no el espaciado (con el
 espaciado la red sale comprimida un 10 %); y al medir constantes elásticas
 hay que guardar `lx0` como **instantánea numérica**, porque si se deja como
