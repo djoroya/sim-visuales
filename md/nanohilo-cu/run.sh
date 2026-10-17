@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# Reproduce todo el trabajo: validacion -> simulacion -> grafica -> video.
+# Reproduce todo: validacion -> simulacion -> curva, binario del visor y
+# poster. La animacion no se renderiza a video: la dibuja el visor web a
+# partir del binario .nw (ver ../../visor).
 #
 #   ./run.sh              todo
 #   ./run.sh validacion   solo la validacion del potencial
 #   ./run.sh simulacion   solo el ensayo de traccion
-#   ./run.sh render       solo fotogramas, video, poster y grafica
+#   ./run.sh salidas      solo curva, binario y poster (reusa los volcados)
 #
-# Variables utiles:  HILOS (threads de OpenMP), NSEC/NLONG (tamano del hilo),
-# RMELLA (radio de la mella en A), FPS.
+# Variables utiles: HILOS, NSEC, NLONG, EPSMAX, NFRAMES, LMP, POT.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 cd "$(dirname "$0")"
 
-HILOS=${HILOS:-10}
-NSEC=${NSEC:-16}
-NLONG=${NLONG:-45}
-RMELLA=${RMELLA:-12.0}
-EPSMAX=${EPSMAX:-0.60}
-FPS=${FPS:-30}
+HILOS=${HILOS:-4}
+NSEC=${NSEC:-8}
+NLONG=${NLONG:-20}
+EPSMAX=${EPSMAX:-1.2}
+NFRAMES=${NFRAMES:-80}
 LMP=${LMP:-lmp}
 POT=${POT:-/usr/share/lammps/potentials/Cu_mishin1.eam.alloy}
 
@@ -29,7 +29,7 @@ PY="$VENV/bin/python"
 paso() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
 
 prepara() {
-  mkdir -p datos/frames datos/render salida tmp
+  mkdir -p datos/frames salida
   if [ ! -x "$PY" ]; then
     paso "entorno de Python"
     python3 -m venv "$VENV"
@@ -51,34 +51,24 @@ simulacion() {
   paso "ensayo de traccion del nanohilo (unos minutos)"
   rm -f datos/frames/*.lammpstrj datos/curva.txt
   $LMP -sf omp -pk omp "$HILOS" -in lammps/in.nanohilo \
-       -var pot "$POT" -var nsec "$NSEC" -var nlong "$NLONG" \
-       -var rmella "$RMELLA" -var epsmax "$EPSMAX" \
+       -var pot "$POT" -var nsec "$NSEC" -var nlong "$NLONG" -var epsmax "$EPSMAX" \
        -log datos/log.nanohilo -screen none
 }
 
-render() {
+salidas() {
   paso "curva tension-deformacion"
   "$PY" python/curva.py
 
-  paso "fotogramas"
-  "$PY" python/render.py --procesos "$HILOS"
+  paso "binario para el visor"
+  "$PY" python/exporta.py --n "$NFRAMES"
 
-  paso "video y poster"
-  local n dur
-  n=$(find datos/render -name 'f*.png' | wc -l)
-  dur=$(awk -v n="$n" -v f="$FPS" 'BEGIN{printf "%.3f", n/f}')
-  # fundido a blanco al principio y al final: el bucle cierra sin salto
-  local filtro="fade=t=in:st=0:d=0.30:c=white,fade=t=out:st=$(awk -v d="$dur" 'BEGIN{printf "%.3f", d-0.60}'):d=0.60:c=white"
+  paso "poster de respaldo"
+  "$PY" python/render.py --poster salida/nanohilo-cu-poster.png
 
-  ffmpeg -y -loglevel error -framerate "$FPS" -i datos/render/f%04d.png \
-    -vf "$filtro" -c:v libvpx-vp9 -crf 40 -b:v 0 -row-mt 1 -deadline good \
-    -cpu-used 1 -pix_fmt yuv420p -an salida/nanohilo-cu.webm
-  ffmpeg -y -loglevel error -framerate "$FPS" -i datos/render/f%04d.png \
-    -vf "$filtro" -c:v libx264 -preset veryslow -crf 30 -profile:v high \
-    -pix_fmt yuv420p -movflags +faststart -an salida/nanohilo-cu.mp4
-
-  cp "datos/render/f$(printf '%04d' "$(cat datos/render/mejor.txt)").png" \
-     salida/nanohilo-cu-poster.png
+  paso "comprobacion del formato con el parser del visor"
+  ( cd ../../visor && node test/formato.mjs \
+      ../md/nanohilo-cu/salida/nanohilo-cu.nw \
+      ../md/nanohilo-cu/datos/control.json )
 
   printf '\n'
   ls -lh salida | sed 's/^/  /'
@@ -87,9 +77,9 @@ render() {
 case "${1:-todo}" in
   validacion) prepara; validacion ;;
   simulacion) prepara; simulacion ;;
-  render)     prepara; render ;;
-  todo)       prepara; validacion; simulacion; render ;;
-  *) echo "uso: $0 [todo|validacion|simulacion|render]" >&2; exit 2 ;;
+  salidas)    prepara; salidas ;;
+  todo)       prepara; validacion; simulacion; salidas ;;
+  *) echo "uso: $0 [todo|validacion|simulacion|salidas]" >&2; exit 2 ;;
 esac
 
 paso "listo"

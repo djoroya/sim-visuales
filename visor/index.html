@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nanohilo de cobre — demo del visor</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        background: #fff;
+        color: #27323d;
+        font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main { max-width: 68rem; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+      h1 { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 .3rem; }
+      p.sub { color: #5b6b7b; margin: 0 0 2rem; }
+      #hilo { width: 100%; aspect-ratio: 16 / 7; }
+      .franja { background: #f4f7fa; padding: 2rem 0; margin: 2rem 0; }
+      .franja #hilo2 { width: min(60rem, 92vw); margin: 0 auto; aspect-ratio: 16 / 6; }
+      code { background: #f1f4f8; padding: .1em .35em; border-radius: 3px; font-size: .9em; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Ensayo de tracción de un nanohilo de cobre</h1>
+      <p class="sub">
+        Dinámica molecular con LAMMPS, potencial EAM de Mishin et al. (2001).
+        Azul: fallas de apilamiento; gris claro: cristal fcc y superficie libre.
+      </p>
+
+      <div id="hilo"></div>
+
+      <div class="franja">
+        <div id="hilo2"></div>
+      </div>
+
+      <p>
+        El mismo visor sobre fondo claro: el lienzo es transparente, así que
+        toma el color de la página. Arrastra para girar el hilo.
+      </p>
+    </main>
+
+    <script type="module" src="/src/demo.js"></script>
+  </body>
+</html>

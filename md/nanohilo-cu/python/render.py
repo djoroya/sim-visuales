@@ -49,6 +49,12 @@ DIAM = 2.35                  # diametro de dibujo del atomo, A
 MARGEN = 1.10                # holgura horizontal sobre la longitud final
 
 
+def ordena(rutas):
+    """Por numero de paso: ordenar los nombres como texto los descoloca
+    en cuanto el paso pasa de cinco cifras."""
+    return sorted(rutas, key=lambda r: int(r.name.split(".")[1]))
+
+
 def lee_frame(ruta: Path):
     """Devuelve (pos Nx3, cna N, (xlo, xhi))."""
     with open(ruta) as fh:
@@ -122,7 +128,8 @@ def dibuja(args):
     capa(~arriba, False)
     capa(arriba, True)
 
-    fig.savefig(destino, dpi=DPI, facecolor=FONDO)
+    fig.savefig(destino, dpi=DPI, facecolor=FONDO,
+                transparent=str(destino).endswith("-poster.png"))
     plt.close(fig)
     return idx, int((cna == 2).sum()), lx
 
@@ -133,20 +140,34 @@ def main() -> int:
     ap.add_argument("--frames", default=str(raiz / "datos" / "frames"))
     ap.add_argument("--salida", default=str(raiz / "datos" / "render"))
     ap.add_argument("--procesos", type=int, default=min(10, os.cpu_count() or 4))
+    ap.add_argument("--poster", default=None,
+                    help="dibuja solo el fotograma mas vistoso en esta ruta")
+    ap.add_argument("--transparente", action="store_true")
     args = ap.parse_args()
 
-    rutas = sorted(Path(args.frames).glob("hilo.*.lammpstrj"))
+    rutas = ordena(Path(args.frames).glob("hilo.*.lammpstrj"))
     if not rutas:
         print("no hay volcados que renderizar", file=sys.stderr)
         return 1
+    if args.poster:
+        # el fotograma con mas atomos en falla de apilamiento es el que mejor
+        # ensena la plasticidad; es el que se usa como imagen de respaldo
+        hcp = [int((lee_frame(r)[1] == 2).sum()) for r in rutas]
+        rutas_todas, rutas = rutas, [rutas[int(np.argmax(hcp))]]
+        print(f"fotograma mas vistoso: {rutas[0].name} ({max(hcp)} atomos hcp)")
+
     destino = Path(args.salida)
     destino.mkdir(parents=True, exist_ok=True)
     for viejo in destino.glob("*.png"):
         viejo.unlink()
 
     # --- encuadre comun a toda la animacion ---------------------------------
-    pos0, _, (xlo0, xhi0) = lee_frame(rutas[0])
-    posf, cnaf, (xlof, xhif) = lee_frame(rutas[-1])
+    if args.poster:
+        pos0, _, (xlo0, xhi0) = lee_frame(rutas_todas[0])
+        posf, cnaf, (xlof, xhif) = lee_frame(rutas_todas[-1])
+    else:
+        pos0, _, (xlo0, xhi0) = lee_frame(rutas[0])
+        posf, cnaf, (xlof, xhif) = lee_frame(rutas[-1])
     lx_fin = xhif - xlof
     vista_x = lx_fin * MARGEN
     vista_y = vista_x * ALTO_PX / ANCHO_PX
@@ -161,6 +182,14 @@ def main() -> int:
     s_cuello = 0.5 * (bordes[int(np.argmin(suave))] + bordes[int(np.argmin(suave)) + 1])
     desplaza = (s_cuello + 0.5) % 1.0
     print(f"encuadre {vista_x:.1f} x {vista_y:.1f} A ; rotura en s={s_cuello:.3f}")
+
+    if args.poster:
+        salida_poster = Path(args.poster)
+        salida_poster.parent.mkdir(parents=True, exist_ok=True)
+        dibuja((0, str(rutas[0]), str(salida_poster), desplaza,
+                vista_x, vista_y, centro_yz))
+        print(f"poster en {salida_poster}")
+        return 0
 
     n = len(rutas)
     tareas = [(i, str(ruta), str(destino / f"f{i:04d}.png"),

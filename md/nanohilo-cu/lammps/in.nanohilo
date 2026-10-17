@@ -3,11 +3,11 @@
 #
 # Potencial EAM de Mishin et al., Phys. Rev. B 63, 224106 (2001).
 #
-# Geometria : seccion cuadrada {100} de 12 a0 x 12 a0, longitud 45 a0
-#             (~4.3 x 4.3 x 16.3 nm, 25 920 atomos)
+# Geometria : seccion cuadrada {100} de 8 a0 x 8 a0, longitud 20 a0
+#             (~2,9 x 2,9 x 7,2 nm, 5780 atomos)
 # Contorno  : periodico en x (eje del hilo), superficies libres en y, z
-# Protocolo : minimizacion -> NPT 300 K / sigma_xx = 0 (20 ps)
-#             -> traccion a velocidad de deformacion constante 5e9 1/s
+# Protocolo : minimizacion -> NVT 300 K, 20 ps -> traccion a velocidad de
+#             deformacion constante 5e9 1/s hasta eps = 0,5
 #
 # Salidas:
 #   ${sal}/curva.txt            deformacion ingenieril vs tension ingenieril
@@ -19,18 +19,17 @@
 
 variable  pot    string /usr/share/lammps/potentials/Cu_mishin1.eam.alloy
 variable  a0     equal 3.61492506588808     # relajado en in.validacion
-variable  nsec   index 20                   # celdas en la seccion
-variable  nlong  index 45                   # celdas a lo largo del eje
+variable  nsec   index 8                    # celdas en la seccion
+variable  nlong  index 20                   # celdas a lo largo del eje
 variable  sal    index datos                # carpeta de salida
-variable  rmella index 0.0                  # radio de la mella, A (0 = sin mella)
+variable  rmella index 0.0                 # radio de la mella, A (0 = sin mella)
 variable  Tsim   equal 300.0
 variable  dt     equal 0.002                # ps
 variable  erate  equal 0.005                # 1/ps  = 5e9 1/s
-variable  epsmax index 0.60                 # deformacion final
-variable  nequil equal 10000                # 20 ps de equilibrado
-variable  nfreno equal 2000                 # 4 ps de relajacion antes de tirar
-variable  ndump  equal 250                  # un volcado cada 0.5 ps
-variable  nterm  equal 50
+variable  epsmax index 0.50                 # deformacion final
+variable  nequil index 10000                # 20 ps de equilibrado
+variable  ndump  index 625                  # pasos entre volcados (80 en total)
+variable  nterm  index 100
 
 units           metal
 dimension       3
@@ -88,17 +87,13 @@ print "volumen atomico total ${Vat}"
 min_style       cg
 minimize        1.0e-10 1.0e-12 20000 200000
 
-# --- 2) equilibrado a 300 K con sigma_xx = 0 --------------------------------
+# --- 2) equilibrado a 300 K (NVT; las caras laterales quedan libres) --------
 reset_timestep  0
 timestep        ${dt}
 velocity        all create ${Tsim} 581923 mom yes rot no dist gaussian
-fix             eq all npt temp ${Tsim} ${Tsim} 0.2 x 0.0 0.0 2.0
+fix             eq all nvt temp ${Tsim} ${Tsim} 0.2
 run             ${nequil}
 unfix           eq
-
-fix             eq2 all nvt temp ${Tsim} ${Tsim} 0.2
-run             ${nfreno}
-unfix           eq2
 
 # --- 3) traccion ------------------------------------------------------------
 reset_timestep  0
@@ -123,7 +118,7 @@ fix             curva all print ${nterm} "${strain} ${sigma} ${tempK} ${epot}" &
                 title "# deformacion tension_GPa temperatura_K energia_eV"
 
 dump            d1 all custom ${ndump} ${sal}/frames/hilo.*.lammpstrj id x y z c_cna
-dump_modify     d1 sort id format line "%d %.3f %.3f %.3f %.0f" pad 5
+dump_modify     d1 sort id format line "%d %.3f %.3f %.3f %.0f" pad 7
 
 run             ${nrun}
 

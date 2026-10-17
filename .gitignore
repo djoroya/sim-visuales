@@ -6,3 +6,14 @@ log.lammps
 # datos pesados de las simulaciones: se regeneran con run.sh
 md/*/datos/
 md/*/tmp/
+*.nw.gz
+
+# visor
+visor/node_modules/
+visor/dist/
+
+# del entorno de trabajo, no del proyecto
+.claude/
+.mcp.json
+.idea
+.vscode
