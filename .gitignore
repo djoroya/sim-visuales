@@ -8,6 +8,8 @@ md/*/datos/
 md/*/tmp/
 particulas/*/datos/
 particulas/*/tmp/
+control/*/datos/
+control/*/tmp/
 *.nw.gz
 
 # visor

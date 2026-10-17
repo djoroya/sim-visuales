@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastoreo con control óptimo · heurística frente a CasADi</title>
+<style>
+  :root { color-scheme: light }
+  body {
+    margin: 0 auto; padding: 2.2rem 1.2rem 3rem; max-width: 60rem;
+    font: 400 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #1d2a36; background: #fff;
+  }
+  h1 { font-size: 1.45rem; line-height: 1.25; margin: 0 0 .4rem; letter-spacing: -.01em }
+  p.sub { color: #5b6b7b; margin: 0 0 1.6rem }
+  #corral { margin: 0 0 .2rem }
+  table { border-collapse: collapse; margin: 1.8rem 0 0; font-size: .93rem; width: 100% }
+  th, td { text-align: right; padding: .35rem .6rem; border-bottom: 1px solid #edf1f5 }
+  th:first-child, td:first-child { text-align: left }
+  thead th { color: #5b6b7b; font-weight: 600 }
+  footer { color: #5b6b7b; font-size: .88rem; margin-top: 2rem }
+  a { color: #14519b }
+</style>
+</head>
+<body>
+  <h1>Tres perros, doscientas ovejas y un problema de control óptimo</h1>
+  <p class="sub" id="sub">A la izquierda, la heurística «empujar y girar» del
+  TFM. A la derecha, la trayectoria que sale de minimizar el coste con CasADi e
+  IPOPT. Misma dinámica, mismo horizonte, misma cota de aceleración.</p>
+
+  <div id="corral"></div>
+
+  <table id="tabla" hidden>
+    <thead><tr><th>al final del horizonte</th><th>heurística</th><th>óptimo</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <footer>
+    Modelo del TFM de Jesús Oroya (UPV/EHU, 2020), a su vez del paradigma
+    <em>guidance by repulsion</em> de Escobedo, Ibáñez y Zuazua. El binario de
+    las dos trayectorias ocupa menos de 300 KiB.
+  </footer>
+
+<script type="module">
+import { montaComparacion } from './visor.js'
+
+const visor = await montaComparacion(document.querySelector('#corral'), {
+  datos: 'pastoreo-optimo.herd2',
+  meta: 'pastoreo-optimo-meta.json',
+})
+
+// tabla de resultados, con los numeros que vienen en el meta
+const meta = await fetch('pastoreo-optimo-meta.json').then((r) => r.json())
+document.querySelector('h1').textContent =
+  `${meta.perros} perros, ${meta.ovejas} ovejas y un problema de control óptimo`
+const filas = [
+  ['distancia al objetivo', (s) => s.dist_final.toFixed(1)],
+  ['dispersión (radio de giro²)', (s) => Math.round(s.disp_final).toLocaleString('es')],
+  ['esfuerzo ∫Σ|a|² dt', (s) => Math.round(s.esfuerzo_int).toLocaleString('es')],
+  ['coste J', (s) => s.coste.J.toFixed(3)],
+]
+const cuerpo = document.querySelector('#tabla tbody')
+for (const [nombre, f] of filas) {
+  const tr = document.createElement('tr')
+  tr.innerHTML = `<td>${nombre}</td><td>${f(meta.escenas[0].resumen)}</td>`
+    + `<td>${f(meta.escenas[1].resumen)}</td>`
+  cuerpo.appendChild(tr)
+}
+document.querySelector('#tabla').hidden = false
+</script>
+</body>
+</html>

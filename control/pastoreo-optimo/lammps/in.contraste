@@ -1,0 +1,69 @@
+# ---------------------------------------------------------------------------
+# Contraste: la misma dinamica que `python/modelo.py`, resuelta con LAMMPS.
+#
+# Es el montaje de `particulas/pastoreo/lammps/in.pastoreo` sin la politica
+# (el perro no actua, solo repele) y leyendo el estado inicial de un data file
+# para que las dos implementaciones arranquen exactamente igual.
+#
+#   lmp -in lammps/in.contraste -var data tmp/contraste.data -var tfin 60
+# ---------------------------------------------------------------------------
+
+variable  data   index tmp/contraste.data
+variable  tabla  index tmp/oveja-oveja.table
+variable  nula   index tmp/nula.table
+variable  sal    index tmp/contraste
+variable  tfin   index 60.0
+variable  dt     index 0.01
+variable  nvolc  index 100         # un volcado por unidad de tiempo
+
+variable  rmino  index 30.0
+variable  sigma  index 50.0
+variable  Fm     index 5.0
+variable  nuo    index 0.45
+variable  nup    index 5.0
+
+units           lj
+dimension       2
+boundary        f f p
+atom_style      atomic
+atom_modify     map array
+
+read_data       ${data}
+
+group           perro  id 1
+group           ovejas subtract all perro
+
+pair_style      table linear 20000
+pair_coeff      1 1 ${tabla} OVEJA_OVEJA 200.0
+pair_coeff      1 2 ${nula} NULA 1.0
+pair_coeff      2 2 ${nula} NULA 1.0
+
+neighbor        10.0 nsq
+neigh_modify    delay 0 every 1 check yes one 10000
+
+# g_op: repulsion del perro sobre cada oveja (asimetrica, ec. 5.10)
+variable  dx   atom x-x[1]
+variable  dy   atom y-y[1]
+variable  d2   atom v_dx*v_dx+v_dy*v_dy
+variable  dr   atom sqrt(v_d2)
+variable  gop  atom ${Fm}*exp(-v_d2/(${sigma}*${sigma}))/v_dr
+variable  fox  atom v_gop*v_dx
+variable  foy  atom v_gop*v_dy
+fix       rep ovejas addforce v_fox v_foy 0.0
+
+fix       fro perro  viscous ${nup}
+fix       fre ovejas viscous ${nuo}
+fix       int all nve
+fix       dos all enforce2d
+
+velocity  all set 0.0 0.0 0.0
+
+timestep  ${dt}
+variable  npaso equal round(${tfin}/${dt})
+thermo    10000
+
+dump      d1 all custom ${nvolc} ${sal}.lammpstrj id type x y
+dump_modify d1 sort id format line "%d %d %.6f %.6f"
+
+run       ${npaso}
+print "FIN contraste"

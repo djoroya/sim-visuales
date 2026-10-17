@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastoreo óptimo · bucle</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #fff }
+  body { display: grid; place-items: center }
+  #corral { width: min(100vw - 1rem, 70rem) }
+</style>
+</head>
+<body>
+  <!-- version ligera para incrustar: sin controles, sin tabla, en bucle -->
+  <div id="corral"></div>
+<script type="module">
+import { montaComparacion } from './visor.js'
+await montaComparacion(document.querySelector('#corral'), {
+  datos: 'pastoreo-optimo.herd2',
+  meta: 'pastoreo-optimo-meta.json',
+  controles: false,
+  duracion: 12,
+  estela: 45,
+})
+</script>
+</body>
+</html>
