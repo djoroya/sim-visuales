@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Una grieta atravesando un cristal</title>
+    <style>
+      :root { color-scheme: light; }
+      body { margin:0; background:#fff; color:#27323d;
+             font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif }
+      main { max-width:62rem; margin:0 auto; padding:2.5rem 1.5rem 4rem }
+      h1 { font-size:1.55rem; font-weight:600; letter-spacing:-.01em; margin:0 0 .3rem }
+      p.sub { color:#5b6b7b; margin:0 0 1.6rem }
+      #grieta { width:100%; aspect-ratio:300/140; background:#081627; border-radius:3px }
+      footer { margin-top:2.2rem; font-size:.9rem; color:#5b6b7b }
+      a { color:#14519b }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Una grieta atravesando un cristal</h1>
+      <p class="sub">
+        43.000 átomos en una red triangular de Lennard-Jones, estirados en modo I
+        hasta que la entalla de la izquierda rompe. El color es la tensión σ<sub>yy</sub>:
+        azul donde el material está relajado, ámbar donde se concentra.
+      </p>
+      <div id="grieta"></div>
+      <footer>
+        La punta avanza a 0,30 veces la velocidad de las ondas de Rayleigh del
+        cristal, que es el límite que no puede superar.
+      </footer>
+    </main>
+    <script type="module">
+      import { montaGrieta } from './grieta.js'
+      montaGrieta(document.querySelector('#grieta'), {
+        datos: 'grieta.crack', meta: 'grieta-meta.json',
+      })
+    </script>
+  </body>
+</html>

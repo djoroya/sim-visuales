@@ -1,0 +1,137 @@
+# ---------------------------------------------------------------------------
+# Validacion del cristal triangular 2D de Lennard-Jones a 0 K.
+#
+# Con el radio de corte entre los primeros y los segundos vecinos (1,122 y
+# 1,943 sigma), cada atomo solo ve a sus 6 vecinos proximos. Entonces el
+# equilibrio exige phi'(a) = 0, es decir a = 2^(1/6) sigma, y las constantes
+# elasticas salen en cerrado de la formula de Born para potenciales de pares:
+#
+#   C11 = (3 sqrt(3)/4) phi''(a)      C12 = C66 = (sqrt(3)/4) phi''(a)
+#   phi''(a) = 72 eps / (2^(1/3) sigma^2)
+#
+# de donde nu = C12/C11 = 1/3 exacto y el cristal es elasticamente isotropo
+# (comprobacion: C66 = (C11-C12)/2).
+#
+# Tambien mide la energia de superficie gamma, que vale 1 eps por atomo de
+# borde: en volumen cada atomo aporta 3 phi(a) = -3 eps y en la superficie
+# densa solo 2 phi(a) = -2 eps.
+#
+#   lmp -in lammps/in.elastico -log datos/log.elastico
+# ---------------------------------------------------------------------------
+
+variable  salida index datos/elastico.txt
+variable  rc     index 1.5          # entre 1os (1,122) y 2os (1,943) vecinos
+variable  nx     index 20
+variable  ny     index 12
+
+units           lj
+dimension       2
+atom_style      atomic
+boundary        p p p
+
+# red triangular: celda rectangular con 2 atomos
+# OJO: en units lj el argumento de "lattice" es la DENSIDAD reducida, no el
+# espaciado. Para que los primeros vecinos queden a a0 = 2^(1/6) sigma en una
+# red triangular (celda rectangular de 2 atomos y area sqrt(3) a0^2) hace
+# falta rho = 2/(sqrt(3) a0^2) = 0,9165.
+variable  a0     equal 2.0^(1.0/6.0)
+variable  rho    equal 2.0/(sqrt(3.0)*2.0^(1.0/3.0))
+lattice         custom ${rho} a1 1.0 0.0 0.0 a2 0.0 1.7320508075688772 0.0 &
+                a3 0.0 0.0 1.0 basis 0.0 0.0 0.0 basis 0.5 0.5 0.0
+region          caja block 0 ${nx} 0 ${ny} -0.5 0.5 units lattice
+create_box      1 caja
+create_atoms    1 box
+mass            1 1.0
+
+pair_style      lj/cut ${rc}
+pair_coeff      1 1 1.0 1.0
+pair_modify     shift yes          # energia nula en el corte
+
+neighbor        0.5 bin
+neigh_modify    delay 0 every 1 check yes
+
+thermo          50
+thermo_style    custom step pe lx ly pxx pyy pxy
+# en units lj las magnitudes extensivas salen normalizadas por atomo; aqui
+# interesa la energia total para la energia de superficie
+thermo_modify   norm no
+
+# --- 1) relajacion: parametro de red y energia de cohesion -----------------
+fix             relaja all box/relax x 0.0 y 0.0
+min_style       cg
+minimize        0.0 1.0e-14 100000 1000000
+unfix           relaja
+minimize        0.0 1.0e-14 100000 1000000
+
+variable  natoms equal count(all)
+variable  av     equal lx/${nx}
+variable  a      equal ${av}
+variable  ecohv  equal pe/count(all)
+variable  ecoh   equal ${ecohv}
+# OJO: instantaneas numericas, no variables dinamicas. Si lx0 sigue valiendo
+# "lx", al restaurar la caja despues de deformarla se restaura al valor ya
+# deformado y se acaba midiendo la mitad de la constante elastica.
+variable  lx0v   equal lx
+variable  ly0v   equal ly
+variable  lx0    equal ${lx0v}
+variable  ly0    equal ${ly0v}
+
+print "a ${a}"                     file   ${salida}
+print "ecoh ${ecoh}"               append ${salida}
+print "atomos ${natoms}"           append ${salida}
+
+# --- 2) constantes elasticas por diferencias centradas ---------------------
+# en 2D con lz = 1, la presion que da LAMMPS es ya la tension bidimensional
+variable  eps   equal 1.0e-5
+
+change_box      all x final 0.0 $((1.0+v_eps)*v_lx0) remap units box
+minimize        0.0 1.0e-14 100000 1000000
+variable  pxxp  equal pxx
+variable  pyyp  equal pyy
+variable  pxxP  equal ${pxxp}
+variable  pyyP  equal ${pyyp}
+change_box      all x final 0.0 ${lx0} remap units box
+
+change_box      all x final 0.0 $((1.0-v_eps)*v_lx0) remap units box
+minimize        0.0 1.0e-14 100000 1000000
+variable  pxxm  equal pxx
+variable  pyym  equal pyy
+variable  pxxM  equal ${pxxm}
+variable  pyyM  equal ${pyym}
+change_box      all x final 0.0 ${lx0} remap units box
+
+variable  C11   equal -(${pxxP}-${pxxM})/(2.0*${eps})
+variable  C12   equal -(${pyyP}-${pyyM})/(2.0*${eps})
+print "C11 ${C11}" append ${salida}
+print "C12 ${C12}" append ${salida}
+
+# cizalla, para comprobar la isotropia
+change_box      all triclinic
+variable  dxy   equal ${eps}*${ly0}
+change_box      all xy final ${dxy} remap units box
+minimize        0.0 1.0e-14 100000 1000000
+variable  pxyp  equal pxy
+variable  pxyP  equal ${pxyp}
+change_box      all xy final 0.0 remap units box
+change_box      all xy final -${dxy} remap units box
+minimize        0.0 1.0e-14 100000 1000000
+variable  pxym  equal pxy
+variable  pxyM  equal ${pxym}
+change_box      all xy final 0.0 remap units box
+variable  C66   equal -(${pxyP}-${pxyM})/(2.0*${eps})
+print "C66 ${C66}" append ${salida}
+
+# --- 3) energia de superficie ----------------------------------------------
+# se abre la caja en y: la diferencia de energia son las dos superficies que
+# aparecen, repartidas entre la longitud lx de cada una
+change_box      all ortho
+variable  epot0 equal pe
+variable  e0    equal ${epot0}
+change_box      all boundary p s p
+minimize        0.0 1.0e-14 100000 1000000
+variable  epot1 equal pe
+variable  e1    equal ${epot1}
+variable  gamma equal (${e1}-${e0})/(2.0*${lx0})
+print "gamma ${gamma}" append ${salida}
+
+print "FIN elastico"

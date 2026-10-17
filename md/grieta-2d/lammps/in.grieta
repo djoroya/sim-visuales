@@ -1,0 +1,114 @@
+# ---------------------------------------------------------------------------
+# Propagacion de una grieta en un cristal triangular 2D de Lennard-Jones.
+#
+# Lamina con una entalla en el borde izquierdo, cargada en modo I (traccion
+# perpendicular a la grieta). El protocolo es el clasico de fractura en MD:
+#
+#   1. se construye la lamina y se abre la entalla quitando una fila de atomos
+#   2. se aplica de golpe una deformacion uniforme eps_yy por encima de la
+#      critica de Griffith, de forma afin
+#   3. se congelan las filas de arriba y de abajo (desplazamiento impuesto) y
+#      se deja evolucionar: la grieta corre con la energia elastica ya
+#      almacenada, sin seguir cargando
+#
+# Asi la punta alcanza una velocidad estacionaria, que es lo que se compara
+# con la velocidad de Rayleigh.
+#
+#   lmp -in lammps/in.grieta -var eps 0.025 -var sal datos/grieta
+# ---------------------------------------------------------------------------
+
+variable  nx     index 300        # celdas en x (2 atomos por celda)
+variable  ny     index 72         # celdas en y
+variable  eps    index 0.025      # deformacion aplicada
+variable  entalla index 0.18      # longitud de la entalla, en fraccion de lx
+variable  temp   index 0.02       # temperatura
+variable  tfin   index 190.0
+variable  dt     index 0.004
+variable  nvolc  index 400        # pasos entre volcados
+variable  rc     index 1.5
+variable  nfija  index 3          # filas congeladas arriba y abajo
+variable  sal    index datos/grieta
+variable  semi   index 48271
+
+units           lj
+dimension       2
+atom_style      atomic
+# todos los bordes libres salvo las filas que se congelan arriba y abajo. Con
+# x periodico la entalla tendria dos puntas (se cerraria sobre si misma por el
+# borde) y saldrian dos grietas corriendo una hacia la otra.
+boundary        s s p
+
+# OJO: en units lj el argumento de "lattice" es la DENSIDAD reducida, no el
+# espaciado. Para que los primeros vecinos queden a a0 = 2^(1/6) sigma en una
+# red triangular (celda rectangular de 2 atomos y area sqrt(3) a0^2) hace
+# falta rho = 2/(sqrt(3) a0^2) = 0,9165.
+variable  a0     equal 2.0^(1.0/6.0)
+variable  rho    equal 2.0/(sqrt(3.0)*2.0^(1.0/3.0))
+lattice         custom ${rho} a1 1.0 0.0 0.0 a2 0.0 1.7320508075688772 0.0 &
+                a3 0.0 0.0 1.0 basis 0.0 0.0 0.0 basis 0.5 0.5 0.0
+region          caja block 0 ${nx} 0 ${ny} -0.5 0.5 units lattice
+create_box      1 caja
+create_atoms    1 box
+mass            1 1.0
+
+pair_style      lj/cut ${rc}
+pair_coeff      1 1 1.0 1.0
+pair_modify     shift yes
+neighbor        0.5 bin
+neigh_modify    delay 0 every 1 check yes
+
+thermo_modify   norm no
+
+# --- entalla: se quita una fila de atomos desde el borde izquierdo ---------
+variable  ymed   equal 0.5*(ylo+yhi)
+variable  xent   equal xlo+${entalla}*lx
+region    corte  block INF ${xent} $(v_ymed-0.35) $(v_ymed+0.35) INF INF units box
+delete_atoms region corte compress yes
+
+variable  natoms equal count(all)
+print "atomos ${natoms}"
+
+# --- carga: deformacion afin de golpe --------------------------------------
+variable  ly0v   equal ly
+variable  ly0    equal ${ly0v}
+change_box      all y final $(ylo) $(ylo+(1.0+v_eps)*v_ly0) remap units box
+
+# --- grupos: filas congeladas arriba y abajo -------------------------------
+variable  hfija  equal ${nfija}*1.7320508075688772*${a0}
+region    arriba block INF INF $(yhi-v_hfija) INF INF INF units box
+region    abajo  block INF INF INF $(ylo+v_hfija) INF INF units box
+group     sup    region arriba
+group     inf    region abajo
+group     borde  union sup inf
+group     movil  subtract all borde
+
+# --- tension por atomo, promediada en el tiempo para quitar ruido ----------
+compute   sat  all stress/atom NULL
+# el "volumen" por atomo en 2D es el area de la celda de Voronoi: sqrt(3)/2 a^2
+variable  Aat  equal sqrt(3)/2*${a0}^2
+compute   syy  all reduce sum c_sat[2]
+fix       prom all ave/atom 1 20 20 c_sat[2]
+
+# --- dinamica ---------------------------------------------------------------
+velocity  movil create ${temp} ${semi} mom yes dist gaussian
+velocity  borde set 0.0 0.0 0.0
+fix       congela borde setforce 0.0 0.0 0.0
+fix       integra movil nve
+fix       termo movil langevin ${temp} ${temp} 1.0 ${semi} zero yes
+fix       dos all enforce2d
+
+timestep  ${dt}
+
+variable  tsim equal time
+thermo    2000
+thermo_style custom step time temp pe pyy
+
+fix       med all print 100 "${tsim} $(pyy) $(pe)" file ${sal}-medidas.txt screen no &
+          title "# t pyy pe"
+
+dump      d1 all custom ${nvolc} ${sal}.lammpstrj id x y f_prom
+dump_modify d1 sort id format line "%d %.3f %.3f %.4g"
+
+variable  npaso equal round(${tfin}/${dt})
+run       ${npaso}
+print "FIN grieta"
