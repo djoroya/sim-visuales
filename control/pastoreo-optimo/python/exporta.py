@@ -58,9 +58,10 @@ def main() -> int:
     ap.add_argument("--entrada", default=str(RAIZ / "tmp" / "grande.npz"))
     ap.add_argument("--resumen", default=str(RAIZ / "salida" / "escalera-grande.json"))
     ap.add_argument("--escena", action="append", default=[], metavar="SPEC",
-                    help="escena extra, 'titulo=fichero.npz:clave:resumen.json'; "
-                         "si no se pasa ninguna se exportan la heuristica y el "
-                         "optimo de --entrada")
+                    help="escena, 'titulo|fichero.npz|clave|resumen.json' (clave "
+                         "Z para el optimo, Zh para la heuristica); si no se pasa "
+                         "ninguna se exportan la heuristica y el optimo de "
+                         "--entrada")
     ap.add_argument("--salida", default=str(RAIZ / "salida" / "pastoreo-optimo.herd2"))
     ap.add_argument("--meta", default=str(RAIZ / "salida" / "pastoreo-optimo-meta.json"))
     ap.add_argument("--n", type=int, default=150, help="fotogramas a exportar")
@@ -77,8 +78,7 @@ def main() -> int:
     escenas = []
     if args.escena:
         for spec in args.escena:
-            titulo, resto = spec.split("=", 1)
-            fichero, clave, rjson = resto.split(":")
+            titulo, fichero, clave, rjson = spec.split("|")
             d = np.load(fichero)
             letra = "" if clave == "Z" else "h"
             escenas.append((titulo, d[clave], d["A" + letra],

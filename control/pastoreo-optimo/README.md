@@ -180,6 +180,13 @@ mismo optimizador con el mismo coste encuentra la solución buena y lleva la
 oveja al objetivo. El arranque en caliente no es una optimización de velocidad:
 decide qué solución se encuentra.
 
+Dicho lo cual, conviene no generalizarlo: **en el caso grande no hace falta**.
+Repitiendo el problema de 200 ovejas con control nulo de partida se llega al
+mismo sitio (distancia 2,2 en vez de 2,0, el mismo coste 0,130 y hasta un poco
+menos de esfuerzo). Quien saca al optimizador del agujero allí no es la
+heurística, es el término de seguimiento, que le da gradiente desde el primer
+intervalo.
+
 ## Resultados
 
 200 ovejas, 3 perros, horizonte 400, las dos políticas con la misma dinámica y
@@ -245,6 +252,24 @@ Añadiendo un peso `λ_t` sobre la dispersión *a lo largo* del horizonte
 cerca del objetivo (2,2 frente a 7,8), a cambio de un 80 % más de esfuerzo. Es
 la lección más transferible del tutorial: el optimizador no hace lo que uno
 quiere, hace lo que uno escribe.
+
+### Tocando los pesos
+
+Las mismas 200 ovejas con variantes del coste (tabla completa, con tiempos, en
+[`salida/escalera.md`](salida/escalera.md)):
+
+| | distancia final | dispersión final | esfuerzo |
+|---|---:|---:|---:|
+| heurística | 86,9 | 524 | 428 300 |
+| `λ = 0,2` (el del enunciado) | 2,0 | 503 | 39 982 |
+| `λ = 0,2`, arranque frío | 2,2 | 503 | 37 420 |
+| `λ = 0,5` | 1,7 | 333 | 57 601 |
+| `λ_t = 0,3` (compacto todo el camino) | 1,4 | 369 | 68 956 |
+
+Las tres versiones del óptimo hacen lo mismo a grandes rasgos —empujar en
+diagonal y llegar pronto—; lo que compran los pesos altos es un rebaño más
+apretado, y lo pagan en esfuerzo. Cada una de estas filas son dos horas de
+IPOPT.
 
 ## Lo que no está
 

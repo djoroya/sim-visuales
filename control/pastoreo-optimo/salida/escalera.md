@@ -99,3 +99,15 @@ Horizonte 400 en 160 intervalos de control (960 incógnitas), 10 subpasos de RK4
 | esfuerzo ∫Σ\|a\|² dt | 428 300 | 39 982 |
 | (dispersión de partida) | 1 017 | 1 017 |
 
+## 5. Qué cambia si se cambia el coste
+
+Todas con 200 ovejas, 3 perros, mismo horizonte y misma cota; lo único que cambia son los pesos o el punto de partida. La fila de la heurística está para comparar.
+
+| variante | | distancia final | dispersión final | esfuerzo | tiempo |
+|---|---|---:|---:|---:|---:|
+| *heurística* | la política del TFM | 86,9 | 524 | 428 300 | 2 s |
+| el del enunciado | λ = 0,2, β = 0,2, γ = 0,5, arranque en caliente | 2,0 | 503 | 39 982 | 105 min |
+| arranque frío | el mismo coste, pero partiendo de control nulo | 2,2 | 503 | 37 420 | 105 min |
+| más peso a agrupar | λ = 0,5 | 1,7 | 333 | 57 601 | 117 min |
+| compacto todo el camino | λ_t = 0,3: la dispersión cuenta en cada instante | 1,4 | 369 | 68 956 | 116 min |
+

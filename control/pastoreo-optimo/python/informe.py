@@ -164,6 +164,42 @@ def seccion_grande(d) -> list[str]:
     return out
 
 
+VARIANTES = [
+    ("grande", "el del enunciado", "λ = 0,2, β = 0,2, γ = 0,5, arranque en caliente"),
+    ("frio", "arranque frío", "el mismo coste, pero partiendo de control nulo"),
+    ("sin-seguimiento", "sin seguimiento", "γ = 0: el coste solo mira el instante final"),
+    ("lam05", "más peso a agrupar", "λ = 0,5"),
+    ("compacto", "compacto todo el camino", "λ_t = 0,3: la dispersión cuenta en cada instante"),
+]
+
+
+def seccion_variantes() -> list[str]:
+    """Qué cambia al cambiar el coste. Solo se incluyen las que se hayan
+    ejecutado (`python/experimento.py --etiqueta ...`)."""
+    filas = []
+    for clave, nombre, detalle in VARIANTES:
+        d = lee(clave)
+        if d is None:
+            continue
+        o, i = d["optimo_res"], d["optimo"]
+        filas.append(f"| {nombre} | {detalle} | {num(o['dist_final'], 1)} | "
+                     f"{num(o['disp_final'], 0)} | {num(o['esfuerzo_int'], 0)} | "
+                     f"{num(i['segundos'] / 60, 0)} min |")
+    if len(filas) < 2:
+        return []
+    h = lee("grande")["heuristica"]
+    cab = ["## 5. Qué cambia si se cambia el coste", "",
+           "Todas con 200 ovejas, 3 perros, mismo horizonte y misma cota; lo "
+           "único que cambia son los pesos o el punto de partida. La fila de la "
+           "heurística está para comparar.", "",
+           "| variante | | distancia final | dispersión final | esfuerzo | tiempo |",
+           "|---|---|---:|---:|---:|---:|",
+           f"| *heurística* | la política del TFM | {num(h['dist_final'], 1)} | "
+           f"{num(h['disp_final'], 0)} | {num(h['esfuerzo_int'], 0)} | "
+           f"{num(lee('grande')['heuristica_s'], 0)} s |"]
+    return cab + filas + [""]
+
+
 def main() -> int:
     partes = ["# La escalera de pruebas", "",
               "Generado por `python/informe.py` a partir de los JSON de "
@@ -179,6 +215,7 @@ def main() -> int:
             print(f"  (falta salida/escalera-{nombre}.json, me lo salto)")
             continue
         partes += fn(d)
+    partes += seccion_variantes()
     destino = SALIDA / "escalera.md"
     destino.write_text("\n".join(partes) + "\n")
     print(f"-> {destino.relative_to(RAIZ)}")
