@@ -1,0 +1,156 @@
+# ---------------------------------------------------------------------------
+# Pastoreo: un perro conduce un rebano de ovejas solo por repulsion.
+#
+# Modelo del TFM de Jesus Oroya, "Aprendizaje por refuerzo aplicado al
+# problema del pastoreo" (Master en Ingenieria Computacional y Sistemas
+# Inteligentes, UPV/EHU, 2020), seccion 5:
+#
+#   fuerzas radiales (5.4)-(5.6)
+#     g_oo(r) = -(1/r - 1/rmin_o)        oveja-oveja: atrae lejos, repele cerca
+#     g_op(r) = -Fm exp(-r^2/sigma^2)    perro sobre oveja: siempre repulsiva
+#     g_pp(r) = -(1/r - 1/rmin_p)        perro-perro (aqui solo hay un perro)
+#
+#   dinamica (5.9)-(5.10), con masa unidad, de modo que fuerza = aceleracion
+#     v_o' = -nu_o v_o + G_oo + G_op
+#     v_p' = -nu_p v_p + G_pp + a        a = politica del perro
+#
+#   politica heuristica "empujar y girar" (7.1)-(7.3)
+#     a = h_r(r) (u_om - u_d) + h_p(phi) (u_d - u_om)^perp
+#     h_r(r) = -1/r + 1/rmin_p ,  h_p(phi) = 1 - cos(phi)
+#     phi = angulo entre (u_om - u_T) y (u_d - u_om)
+#
+# Las tres fuerzas radiales son simetricas y van por pair_style; la del perro
+# sobre las ovejas NO lo es (el perro no siente la reaccion del rebano, ec.
+# 5.10), asi que se aplica con fix addforce y variables que leen la posicion
+# del perro por su ID.
+#
+#   lmp -in lammps/in.pastoreo -var nove 30 -var sal datos/pastoreo
+# ---------------------------------------------------------------------------
+
+variable  nove   index 30         # numero de ovejas
+variable  sal    index datos/pastoreo
+variable  tfin   index 900.0
+variable  dt     index 0.01
+variable  nvolc  index 100        # pasos entre volcados
+variable  semi   index 90210
+
+# --- parametros del modelo -------------------------------------------------
+variable  rmino  index 30.0       # TFM, figura 5
+variable  rminp  index 10.0       # TFM, figura 5
+variable  sigma  index 50.0       # TFM, figura 5
+variable  Fm     index 5.0        # calibrado; la figura 5 del TFM sugiere ~7
+variable  nuo    index 0.45       # codigo original DeustoTech/GuidanceByRepulsion
+variable  nup    index 5.0        # idem
+variable  kpol   index 2.5        # ganancia de la politica (calibrada)
+variable  rpos   index 45.0
+variable  dpar   index 8.0        # ver la regularizacion de la politica       # distancia a la que el perro se coloca del
+                                  # centro del rebano; el TFM usa rmin_p, que
+                                  # con un rebano ancho deja al perro dentro
+
+# objetivo y reparto inicial
+variable  xT     index 0.0
+variable  yT     index 0.0
+variable  xreb   index -170.0     # centro inicial del rebano
+variable  yreb   index 110.0
+variable  rreb   index 45.0       # radio del disco inicial
+variable  xd0    index -250.0     # perro
+variable  yd0    index 170.0
+
+units           lj
+dimension       2
+boundary        f f p
+atom_style      atomic
+atom_modify     map array
+
+region          caja block -400 400 -400 400 -0.5 0.5 units box
+create_box      2 caja
+
+# el perro es el atomo 1 (tipo 2); las ovejas, del 2 en adelante (tipo 1)
+create_atoms    2 single ${xd0} ${yd0} 0.0 units box
+region          corral sphere ${xreb} ${yreb} 0.0 ${rreb} side in units box
+create_atoms    1 random ${nove} ${semi} corral units box overlap 6.0 maxtry 2000
+
+mass            * 1.0             # masa unidad: fuerza = aceleracion
+
+group           perro  id 1
+group           ovejas subtract all perro
+
+# --- g_oo: tabla generada por python/tabla.py ------------------------------
+pair_style      table linear 20000
+pair_coeff      1 1 datos/oveja-oveja.table OVEJA_OVEJA 200.0
+pair_coeff      1 2 datos/nula.table NULA 1.0       # el perro no siente al rebano
+pair_coeff      2 2 datos/nula.table NULA 1.0
+
+neighbor        10.0 nsq
+neigh_modify    delay 0 every 1 check yes one 10000
+
+# --- g_op: repulsion del perro sobre cada oveja (asimetrica) ---------------
+variable  dx   atom x-x[1]
+variable  dy   atom y-y[1]
+variable  d2   atom v_dx*v_dx+v_dy*v_dy
+variable  dr   atom sqrt(v_d2)
+# g_op(r) = -Fm exp(-r^2/sigma^2) aplicado sobre (u_p-u_o)/r  ->  repulsion
+variable  gop  atom ${Fm}*exp(-v_d2/(${sigma}*${sigma}))/v_dr
+variable  fox  atom v_gop*v_dx
+variable  foy  atom v_gop*v_dy
+
+fix        rep ovejas addforce v_fox v_foy 0.0
+
+# --- politica heuristica del perro -----------------------------------------
+compute   com ovejas com
+
+variable  omx  equal c_com[1]
+variable  omy  equal c_com[2]
+variable  rdx  equal x[1]-v_omx            # u_d - u_om
+variable  rdy  equal y[1]-v_omy
+variable  rd   equal sqrt(v_rdx*v_rdx+v_rdy*v_rdy)
+# h_r(r): atrae al perro si esta mas lejos de rpos, lo aparta si esta dentro
+variable  hr   equal (-1.0/v_rd+1.0/${rpos})
+# phi: angulo entre (u_om - u_T) y (u_d - u_om); 0 = perro bien colocado detras
+variable  tx   equal v_omx-${xT}
+variable  ty   equal v_omy-${yT}
+# phi no esta definido cuando el rebano se posa justo sobre el objetivo
+# (u_om - u_T = 0). El TFM no lo trata porque alli el rebano nunca llega a
+# pararse del todo; aqui se regulariza apagando el giro cuando el rebano ya
+# esta a menos de dpar del objetivo, que ademas es lo que haria un pastor.
+variable  tn   equal sqrt(v_tx*v_tx+v_ty*v_ty+1.0e-12)
+variable  cosf equal (v_tx*v_rdx+v_ty*v_rdy)/(v_tn*v_rd)
+variable  sat  equal v_tn/(v_tn+${dpar})
+variable  hp   equal v_sat*(1.0-v_cosf)
+# a = h_r (u_om - u_d) + h_p (u_d - u_om)^perp ,  (x,y)^perp = (-y,x)
+variable  fdx  equal ${kpol}*(-v_hr*v_rdx-v_hp*v_rdy)
+variable  fdy  equal ${kpol}*(-v_hr*v_rdy+v_hp*v_rdx)
+
+fix        pol perro addforce v_fdx v_fdy 0.0
+
+# --- rozamiento y dinamica -------------------------------------------------
+fix        fro perro  viscous ${nup}
+fix        fre ovejas viscous ${nuo}
+fix        int all nve
+fix        dos all enforce2d
+
+velocity   all set 0.0 0.0 0.0
+
+# --- medidas ---------------------------------------------------------------
+# distancia del centro del rebano al objetivo y dispersion (traza de la
+# covarianza), que son las dos magnitudes del TFM (ec. 6.3)
+variable  dist equal sqrt((v_omx-${xT})^2+(v_omy-${yT})^2)
+compute   rg   ovejas gyration
+variable  disp equal c_rg*c_rg
+variable  tsim equal time
+
+timestep        ${dt}
+variable  npaso equal round(${tfin}/${dt})
+
+thermo          5000
+thermo_style    custom step time v_dist v_disp v_rd v_hp
+
+fix        med all print ${nvolc} "${tsim} ${dist} ${disp} ${rd} ${hp} ${omx} ${omy} $(x[1]) $(y[1])" &
+           file ${sal}-medidas.txt screen no &
+           title "# t dist_objetivo dispersion r_perro_rebano h_phi omx omy xd yd"
+
+dump       d1 all custom ${nvolc} ${sal}.lammpstrj id type x y
+dump_modify d1 sort id format line "%d %d %.3f %.3f"
+
+run             ${npaso}
+print "FIN pastoreo"

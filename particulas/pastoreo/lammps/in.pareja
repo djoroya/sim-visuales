@@ -1,0 +1,112 @@
+# ---------------------------------------------------------------------------
+# Guidance by repulsion: un conductor (perro) y un evasor (oveja).
+#
+# Modelo de R. Escobedo, A. Ibanez y E. Zuazua, "Optimal strategies for
+# driving a mobile agent in a guidance by repulsion model", Commun. Nonlinear
+# Sci. Numer. Simul. 39 (2016) 58-72, ecuaciones (3)-(4):
+#
+#   m_d v_d' = -C_DE (u_d-u_e)/r^2 (1 - dc^2/r^2)
+#              -C_R d1^4/r^4 [ (u_d-u_e) - kappa d2 (u_d-u_e)^perp / r ]
+#              -nu_d v_d
+#   m_e v_e' = +C_ED (u_e-u_d)/r^2 - nu_e v_e
+#
+# con (x,y)^perp = (-y,x) y r = |u_d - u_e|.
+#
+# La interaccion es ASIMETRICA ("anti-newtoniana"): la fuerza sobre la oveja
+# no es la opuesta de la del perro, asi que no puede escribirse como un
+# pair_style de LAMMPS. Se implementa con fix addforce y variables que leen
+# la posicion del otro agente por su ID (x[1], x[2]).
+#
+#   lmp -in lammps/in.pareja -var kappa 0 -var sal datos/pareja_k0
+# ---------------------------------------------------------------------------
+
+variable  kappa  index 0        # 0 persecucion, +-1 circumvencion
+variable  sal    index datos/pareja
+variable  tfin   index 80.0     # tiempo final
+variable  dt     index 0.0005
+variable  nvolc  index 100      # pasos entre volcados
+
+# parametros del articulo (seccion 2.2, "dataset" de la pagina 7)
+variable  md     index 0.4
+variable  me     index 1.0
+variable  nud    index 1.0
+variable  nue    index 2.0
+variable  CDE    index 3.0      # atraccion-repulsion que la oveja ejerce sobre el perro
+variable  CED    index 2.0      # repulsion que el perro ejerce sobre la oveja
+variable  CR     index 0.5      # circumvencion
+variable  dc     index 2.0
+variable  d1     index 2.0
+variable  d2     index 2.0
+
+# posiciones iniciales del articulo (figura 1)
+variable  xd0    index -6.0
+variable  yd0    index 0.0
+variable  xe0    index 6.0
+variable  ye0    index 0.0
+
+units           lj
+dimension       2
+boundary        f f p
+atom_style      atomic
+atom_modify     map array
+
+region          caja block -60 60 -60 60 -0.5 0.5 units box
+create_box      2 caja
+
+# id 1 = perro (tipo 1), id 2 = oveja (tipo 2)
+create_atoms    1 single ${xd0} ${yd0} 0.0 units box
+create_atoms    2 single ${xe0} ${ye0} 0.0 units box
+
+mass            1 ${md}
+mass            2 ${me}
+
+pair_style      zero 1.0
+pair_coeff      * *
+
+group           perro  id 1
+group           oveja  id 2
+
+velocity        all set 0.0 0.0 0.0
+
+# --- geometria relativa ----------------------------------------------------
+variable  rx   equal x[1]-x[2]          # u_d - u_e
+variable  ry   equal y[1]-y[2]
+variable  r2   equal v_rx*v_rx+v_ry*v_ry
+variable  r    equal sqrt(v_r2)
+
+# --- fuerza sobre la oveja: ec. (4) ----------------------------------------
+variable  fex  equal -${CED}*v_rx/v_r2
+variable  fey  equal -${CED}*v_ry/v_r2
+
+# --- fuerza sobre el perro: ec. (3) ----------------------------------------
+# termino de atraccion-repulsion con la distancia critica dc
+variable  gar  equal -${CDE}*(1.0-${dc}*${dc}/v_r2)/v_r2
+# termino de circumvencion: colineal + perpendicular, (x,y)^perp = (-y,x)
+variable  gci  equal -${CR}*${d1}^4/(v_r2*v_r2)
+variable  fdx  equal v_gar*v_rx+v_gci*(v_rx-${kappa}*${d2}*(-v_ry)/v_r)
+variable  fdy  equal v_gar*v_ry+v_gci*(v_ry-${kappa}*${d2}*(v_rx)/v_r)
+
+fix        1 oveja addforce v_fex v_fey 0.0
+fix        2 perro addforce v_fdx v_fdy 0.0
+fix        3 perro viscous ${nud}
+fix        4 oveja viscous ${nue}
+fix        5 all nve
+fix        6 all enforce2d
+
+timestep        ${dt}
+variable  npaso equal round(${tfin}/${dt})
+
+# magnitudes que se comprueban contra el articulo
+variable  vd    equal sqrt(vx[1]^2+vy[1]^2)
+variable  ve    equal sqrt(vx[2]^2+vy[2]^2)
+variable  tsim  equal time
+
+thermo          2000
+thermo_style    custom step time v_r v_vd v_ve
+
+fix        7 all print ${nvolc} "${tsim} ${rx} ${ry} ${r} ${vd} ${ve} $(x[1]) $(y[1]) $(x[2]) $(y[2])" &
+           file ${sal}.txt screen no &
+           title "# t rx ry r vd ve xd yd xe ye"
+
+run             ${npaso}
+print "FIN pareja kappa=${kappa}"

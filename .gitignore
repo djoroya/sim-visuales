@@ -6,6 +6,8 @@ log.lammps
 # datos pesados de las simulaciones: se regeneran con run.sh
 md/*/datos/
 md/*/tmp/
+particulas/*/datos/
+particulas/*/tmp/
 *.nw.gz
 
 # visor

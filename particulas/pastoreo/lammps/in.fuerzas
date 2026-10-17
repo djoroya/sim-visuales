@@ -1,0 +1,71 @@
+# ---------------------------------------------------------------------------
+# Comprobacion numerica: la fuerza que aplica LAMMPS frente a las g(r) del TFM.
+#
+# Coloca dos individuos a distancia r y vuelca la fuerza sobre el primero,
+# para una lista de distancias. El script python/verifica.py compara esa
+# fuerza con la formula analitica.
+#
+#   lmp -in lammps/in.fuerzas -var par oo -var sal datos/fuerza_oo.txt
+#   lmp -in lammps/in.fuerzas -var par op -var sal datos/fuerza_op.txt
+# ---------------------------------------------------------------------------
+
+variable  par    index oo          # oo = oveja-oveja, op = perro sobre oveja
+variable  sal    index datos/fuerza.txt
+variable  rmino  index 30.0
+variable  sigma  index 50.0
+variable  Fm     index 5.0
+
+units           lj
+dimension       2
+boundary        f f p
+atom_style      atomic
+atom_modify     map array
+
+region          caja block -400 400 -400 400 -0.5 0.5 units box
+create_box      2 caja
+
+# atomo 1 en el origen; atomo 2 a distancia r sobre el eje x
+if "${par} == oo" then &
+  "create_atoms 1 single 0.0 0.0 0.0 units box" &
+  "create_atoms 1 single 1.0 0.0 0.0 units box" &
+else &
+  "create_atoms 2 single 0.0 0.0 0.0 units box" &
+  "create_atoms 1 single 1.0 0.0 0.0 units box"
+
+mass            * 1.0
+
+pair_style      table linear 20000
+pair_coeff      1 1 datos/oveja-oveja.table OVEJA_OVEJA 200.0
+pair_coeff      1 2 datos/nula.table NULA 1.0
+pair_coeff      2 2 datos/nula.table NULA 1.0
+neighbor        10.0 nsq
+neigh_modify    delay 0 every 1 check yes
+
+# repulsion asimetrica del perro sobre la oveja (solo en el caso op)
+variable  dx   atom x-x[1]
+variable  dy   atom y-y[1]
+variable  d2   atom v_dx*v_dx+v_dy*v_dy
+variable  dr   atom sqrt(v_d2)
+variable  gop  atom ${Fm}*exp(-v_d2/(${sigma}*${sigma}))/v_dr
+variable  fox  atom v_gop*v_dx
+variable  foy  atom v_gop*v_dy
+group     oveja2 id 2
+if "${par} == op" then "fix rep oveja2 addforce v_fox v_foy 0.0"
+
+# la fuerza sobre el atomo 2, que es el que recibe en ambos casos
+variable  fx2  equal fx[2]
+variable  r12  equal x[2]-x[1]
+
+thermo_style    custom step
+thermo          1000
+
+print "# r fx" file ${sal}
+label bucle
+variable  i loop 60
+variable  r equal 5.0+(195.0-5.0)*(v_i-1)/59.0
+set       atom 2 x ${r}
+run       0 post no
+print     "${r12} ${fx2}" append ${sal} screen no
+next      i
+jump      SELF bucle
+print "FIN fuerzas"

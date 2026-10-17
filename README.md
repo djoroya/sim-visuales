@@ -12,6 +12,7 @@ Proyecto personal de Jesús Oroya, hecho en tiempo y con recursos propios. Sin c
 |---|---|
 | [`md/nanohilo-cu`](md/nanohilo-cu) | Ensayo de tracción de un nanohilo de cobre [100] hasta la rotura, con LAMMPS y el potencial EAM de Mishin et al. (2001). Validación del potencial, simulación y exportación de la trayectoria |
 | [`visor`](visor) | Visor WebGL (three.js) que dibuja esa trayectoria en vivo en el navegador, sobre fondo transparente |
+| [`particulas/pastoreo`](particulas/pastoreo) | Un perro guía un rebaño de 30 ovejas solo por repulsión: dinámica de partículas en 2D con LAMMPS, con su visor en canvas (45 KiB en total) |
 
 La animación no es un vídeo: el navegador la dibuja a partir de un binario de
 80 fotogramas y 5780 átomos que pesa 793 KiB comprimido.

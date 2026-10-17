@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pastoreo: guiar un rebaño solo con repulsión</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0; background: #fff; color: #27323d;
+        font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main { max-width: 56rem; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+      h1 { font-size: 1.55rem; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 .3rem; }
+      p.sub { color: #5b6b7b; margin: 0 0 1.6rem; }
+      #corral { width: 100%; aspect-ratio: 4 / 3; background: #fbfcfd; border-radius: 4px; }
+      .leyenda {
+        display: flex; gap: 1.4rem; margin: 1.2rem 0 0;
+        padding: 0; list-style: none; font-size: .9rem; color: #5b6b7b;
+      }
+      .leyenda li { display: flex; align-items: center; gap: .45rem; }
+      .punto { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+      footer { margin-top: 2.5rem; font-size: .9rem; color: #5b6b7b; }
+      a { color: #14519b; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Guiar un rebaño solo con repulsión</h1>
+      <p class="sub">
+        Un perro y 30 ovejas. El perro no tira de nadie: solo repele. Modelo y
+        política «empujar y girar» del TFM de Jesús Oroya (UPV/EHU, 2020),
+        integrado con LAMMPS en 2D.
+      </p>
+
+      <div id="corral"></div>
+
+      <ul class="leyenda">
+        <li><span class="punto" style="background:#14519b"></span> perro (conductor)</li>
+        <li><span class="punto" style="background:#9aa8b8"></span> ovejas (evasores)</li>
+        <li><span class="punto" style="border:1.5px dashed #d8e0e9;width:14px;height:14px"></span> objetivo</li>
+      </ul>
+
+      <footer>
+        La estela azul es el recorrido reciente del perro. Arrastra la barra
+        para ir a cualquier instante.
+      </footer>
+    </main>
+
+    <script type="module">
+      import { montaPastoreo } from './pastoreo.js'
+      montaPastoreo(document.querySelector('#corral'), {
+        datos: 'pastoreo.herd',
+        meta: 'pastoreo-meta.json',
+        poster: 'pastoreo-poster.png',
+      })
+    </script>
+  </body>
+</html>
