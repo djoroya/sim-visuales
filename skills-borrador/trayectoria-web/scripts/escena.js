@@ -30,7 +30,24 @@ const PALETA = [0xaab8c6, 0xccd6e0, 0x14519b, 0x4a7fbf, 0x4a7fbf, 0xaab8c6]
 
 export function montaEscena(contenedor, datos, cfg) {
   const { nAtomos, nFrames, pos, tipos, tam } = datos
+
+  // --- estado -----------------------------------------------------------
+  // Va todo aquí arriba, antes de crear nada que pueda llamar de vuelta.
+  // Un ResizeObserver dispara en cuanto observas, y si el callback toca una
+  // variable declarada más abajo salta "Cannot access before initialization"
+  // (zona muerta temporal) solo en el navegador, con la página en blanco.
   const oyentes = new Set()
+  let avance = 0            // 0..1 dentro de la trayectoria
+  let giro = 0              // radianes acumulados por el giro automático
+  let giroManual = 0        // los que ha añadido el visitante arrastrando
+  let corriendo = false
+  let peticion = 0
+  let ultimo = 0
+  let arrastrando = false
+  let xPrev = 0
+  let anchoPx = 1
+  let altoPx = 1
+  let angstromPorPx = 1
 
   const escena = new Scene()
   // al girar sobre su eje, el hilo ocupa su diagonal: hay que reservarla
@@ -39,7 +56,10 @@ export function montaEscena(contenedor, datos, cfg) {
   const camara = new OrthographicCamera(-1, 1, 1, -1, -4000, 4000)
   camara.position.set(0, 0, 500)
 
-  const render = new WebGLRenderer({
+  // cfg.Renderer existe para los tests: permite montar la escena entera con
+  // un renderer de mentira, que es la única parte que necesita WebGL de verdad
+  const Dibujante = cfg.Renderer || WebGLRenderer
+  const render = new Dibujante({
     antialias: true, alpha: true, powerPreference: 'low-power',
   })
   render.setClearAlpha(0)
@@ -99,9 +119,6 @@ export function montaEscena(contenedor, datos, cfg) {
   }
 
   // --- encuadre -------------------------------------------------------------
-  let anchoPx = 1
-  let altoPx = 1
-  let angstromPorPx = 1
   function redimensiona() {
     const r = contenedor.getBoundingClientRect()
     anchoPx = Math.max(1, r.width)
@@ -121,9 +138,6 @@ export function montaEscena(contenedor, datos, cfg) {
   redimensiona()
 
   // --- arrastrar para girar -------------------------------------------------
-  let giroManual = 0
-  let arrastrando = false
-  let xPrev = 0
   const lienzo = render.domElement
   lienzo.addEventListener('pointerdown', (e) => {
     arrastrando = true
@@ -141,13 +155,6 @@ export function montaEscena(contenedor, datos, cfg) {
   lienzo.addEventListener('pointercancel', suelta)
 
   // --- reloj ----------------------------------------------------------------
-  const ciclo = cfg.duracion + cfg.pausaFinal
-  let avance = 0            // 0..1 dentro de la trayectoria
-  let giro = 0              // radianes acumulados
-  let corriendo = false
-  let peticion = 0
-  let ultimo = 0
-
   function avisa() {
     const u = avance * (nFrames - 1)
     for (const f of oyentes) f({ avance, indice: Math.round(u) })

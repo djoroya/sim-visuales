@@ -70,7 +70,9 @@ export async function montaVisor(contenedor, opciones = {}) {
   vista.className = 'nw-vista'
   contenedor.appendChild(vista)
 
-  if (!hayWebGL()) {
+  // cfg.Renderer es el gancho de pruebas: si alguien trae su propio
+  // dibujante, la detección de WebGL no pinta nada
+  if (!cfg.Renderer && !hayWebGL()) {
     ponPoster(vista, cfg.poster, cfg.descripcion)
     return { destruye() { vista.remove() } }
   }

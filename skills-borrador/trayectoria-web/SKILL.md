@@ -146,6 +146,37 @@ un `import()` deja de diferir nada y la página carga three y Plotly de golpe.
 Se ve en el build: un solo fichero de 2,6 MB en vez de cuatro. Declara varias
 entradas (`lib.entry: {carga: ..., visor: ...}`) y deja que Rollup parta.
 
+## La zona muerta temporal deja la página en blanco
+
+El fallo que más caro salió, y dos veces: una función que se llama **durante
+el montaje** —un `ResizeObserver` dispara en cuanto observas— usa un `let`
+declarado más abajo en la misma función. En el navegador es
+`ReferenceError: Cannot access 'X' before initialization`, la página se queda
+en blanco y no se ve nada en el build ni en los tests de piezas sueltas.
+
+La cura es estructural: **todo el estado mutable de la función de montaje, en
+un bloque al principio**, antes de crear nada que pueda llamar de vuelta.
+Merece un comentario explicando por qué está ahí, o alguien lo volverá a
+repartir por el fichero.
+
+Y la red de seguridad: un test que **monte la escena de verdad** con un DOM
+falso y observadores que disparen al observar. Para eso, deja un gancho que
+permita inyectar el renderer:
+
+```js
+const Dibujante = cfg.Renderer || WebGLRenderer
+```
+
+Es la única parte de three que necesita WebGL de verdad; escenas, luces,
+materiales y `InstancedMesh` son objetos JS normales y funcionan en jsdom.
+Con ese gancho se monta el visor entero en Node y se comprueban adornos,
+controles y suscripciones. Comprueba que el test sirve de algo
+reintroduciendo el fallo a propósito y viéndolo saltar.
+
+(Un analizador estático por texto para buscar este patrón da demasiados
+falsos positivos —confunde las variables locales de otras funciones— salvo
+que se trabaje sobre el AST. Sale más a cuenta el test de montaje.)
+
 ## Verificar sin navegador
 
 En un sandbox sin navegador (la descarga de Chrome para puppeteer está
@@ -165,10 +196,13 @@ bloqueada por el proxy) todavía se puede comprobar casi todo:
    de tiempo sigue al fotograma, que arrastrar mueve la animación y que al
    destruir no quedan oyentes colgando. Caza casi todos los errores de
    ejecución sin navegador.
-3. **La animación**, con `scripts/vista_previa.py`: lee el binario con la
+3. **El montaje completo**, con `scripts/test-escena.mjs` y
+   `scripts/test-visor.mjs`: la escena y el visor entero con datos reales,
+   renderer inyectado y observadores que disparan al observar.
+4. **La animación**, con `scripts/vista_previa.py`: lee el binario con la
    **misma reconstrucción** que el visor y pinta una hoja de contacto con la
    misma cámara. Es lo que de verdad te dice si la secuencia es correcta.
-4. **Que el servidor lo sirve**: arranca Vite y pide los ficheros **en el
+5. **Que el servidor lo sirve**: arranca Vite y pide los ficheros **en el
    mismo comando de shell** (ver abajo).
 
 Lo que no puedes verificar así es el render WebGL en sí: dilo explícitamente
@@ -200,11 +234,8 @@ en vez de darlo por bueno.
   póster es lo único que se descarga siempre.
 - Vite sirve bien los **symlinks** en `public/`, así que puedes enlazar los
   datos desde donde los genera la simulación en vez de duplicarlos.
-- **Cuidado con el orden de declaración en los módulos**: si una función que
-  se llama durante el montaje (un `ResizeObserver` que dispara al observar,
-  por ejemplo) usa un `const` declarado más abajo, salta un
-  `ReferenceError: Cannot access before initialization` solo en el navegador.
-  jsdom con una escena de mentira no lo caza: revísalo leyendo.
+- **El orden de declaración dentro de la función de montaje**: ver abajo, es
+  el fallo que más caro sale.
 
 ## Cómo usar los scripts
 
@@ -220,6 +251,8 @@ tests deja la verificación en un comando.
       tamaño de la partícula.
 - [ ] El test del parser en Node pasa contra el `control.json` de Python.
 - [ ] El respaldo sin WebGL deja el póster y no lanza.
+- [ ] La escena y el visor entero se montan en Node sin lanzar, con los
+      observadores disparando al observar.
 - [ ] La hoja de contacto muestra la secuencia correcta de principio a fin.
 - [ ] Has medido y reportado por separado: póster, **cada trozo** de JS en
       gzip (que estén separados de verdad, no inlined), datos gzip, y el total
@@ -230,9 +263,10 @@ tests deja la verificación en un comando.
 
 ## Sin verificar
 
-- El render WebGL (luces, `instanceColor`, bucle, arrastre) no se ha visto
-  nunca en un navegador: aquí no hay ninguno y `puppeteer browsers install
-  chrome` falla por el proxy, igual que compilar `headless-gl` (le faltan las
-  cabeceras de X11). Todo lo demás de esta skill sí está comprobado.
+- El render WebGL en sí (luces, `instanceColor`, bucle, arrastre) no se ha
+  visto desde este entorno: no hay navegador, `puppeteer browsers install
+  chrome` falla por el proxy y compilar `headless-gl` tampoco sale (faltan las
+  cabeceras de X11). Todo lo demás de esta skill está comprobado, y el
+  montaje completo sí se prueba en Node con el renderer inyectado.
 - El comportamiento en móvil y el efecto real de `dprMax`.
 - Que un nginx o Coolify concretos compriman la extensión `.nw`.

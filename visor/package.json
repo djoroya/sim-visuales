@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node test/formato.mjs ../md/nanohilo-cu/salida/nanohilo-cu.nw ../md/nanohilo-cu/datos/control.json && node test/fallback.mjs && node test/interfaz.mjs"
+    "test": "node test/formato.mjs ../md/nanohilo-cu/salida/nanohilo-cu.nw ../md/nanohilo-cu/datos/control.json && node test/fallback.mjs && node test/escena.mjs && node test/interfaz.mjs && node test/visor.mjs"
   },
   "dependencies": {
     "plotly.js-basic-dist-min": "^4.1.2",
