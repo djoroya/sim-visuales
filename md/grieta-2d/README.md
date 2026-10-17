@@ -135,13 +135,27 @@ punta es tan aguda que, si se usa el máximo, todo lo demás queda plano.
 
 | Fichero | Tamaño | Para qué |
 |---|---:|---|
-| `salida/grieta-portada.webm` | **170 KiB** | fondo de portada, bucle de 6,5 s |
-| `salida/grieta-portada.mp4` | 300 KiB | lo mismo, para quien no soporte WebM |
-| `salida/grieta-portada-poster.webp` | 8 KiB | primer fotograma, carga instantánea |
+| `salida/grieta-portada-intermedia.webm` | **249 KiB** | **el que va en la portada**: 1920×480, bucle de 7,2 s |
+| `salida/grieta-portada-intermedia.mp4` | 425 KiB | lo mismo, para quien no soporte WebM |
+| `salida/grieta-portada-intermedia-poster.webp` | 10 KiB | primer fotograma, carga instantánea |
+| `salida/grieta-portada.webm` | 170 KiB | primera versión, 1280×320: a todo lo ancho queda demasiado difuminada |
+| `salida/grieta-portada.mp4` | 300 KiB | ídem |
+| `salida/grieta-portada-poster.webp` | 8 KiB | ídem |
 | `salida/grieta.crack` | 1,8 MiB (**967 KiB** con gzip) | datos del visor interactivo |
 | `salida/grieta-og.png` | 152 KiB | imagen 1200×630 para compartir |
 | `salida/grieta-oscuro-*.png` | ~190 KiB | fotogramas clave, fondo oscuro |
 | `salida/grieta-claro-propagacion.png` | 155 KiB | el mismo, fondo claro |
+
+**Las dos versiones del fondo.** La primera (`grieta-portada`) usa una rejilla
+de 1,1 σ y 1280 px: cabe en 170 KiB, pero estirada a todo el ancho de una
+pantalla se queda en un degradado bonito en el que ya no se reconoce una
+grieta. La que va a la portada (`-intermedia`) sube a 1920 px y afina la
+rejilla a 0,55 σ. La clave para que no engorde: **el campo y el hueco de la
+grieta se suavizan por separado**. El campo lleva una gaussiana de 1,6 σ, que
+quita el moteado térmico —que es ruido de alta frecuencia y lo que de verdad
+le cuesta al códec—; el hueco lo marca la densidad de átomos con su propio
+suavizado de 1,05 σ, del orden del espaciado atómico, y por eso la línea de la
+grieta y su punta salen nítidas aunque el campo esté liso. 249 KiB.
 
 **Por qué la portada es un vídeo y el tutorial un canvas.** El visor dibuja
 los átomos de verdad, y eso tiene un suelo de tamaño: ~1,5 bytes por átomo y

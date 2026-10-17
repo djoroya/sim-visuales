@@ -66,6 +66,18 @@ salidas() {
   paso "video en bucle"
   "$PY" python/video.py --fps 20 --crf-webm 38 --crf-mp4 30
 
+  # version intermedia: campo continuo pero con rejilla fina, para que a todo
+  # el ancho de una portada siga leyendose como una grieta y no como una
+  # mancha. La grieta sale nitida porque su hueco lo marca la densidad, que
+  # lleva su propio suavizado (sigma-dens), independiente del campo.
+  paso "fotogramas de la portada, version intermedia (1920 px)"
+  "$PY" python/render.py --desde 85 --hasta 215 --salida tmp/intermedia \
+        --ancho 1920 --alto 480 --smax 3.0 --suavizado 1.6 --celda 0.55 \
+        --sigma-dens 1.05 --dibujo campo --procesos "$HILOS"
+  "$PY" python/video.py --frames tmp/intermedia --tmp tmp/intermedia-bucle \
+        --nombre grieta-portada-intermedia --fps 18 --crf-webm 42 --crf-mp4 35
+  "$PY" python/poster_intermedia.py
+
   paso "imagenes fijas, poster y OG"
   "$PY" python/render.py --frames 95 150 205 --salida tmp/fijas \
         --ancho 1600 --alto 500 --ventana 150 47 --radio 0.8 --smax "$SMAX" \

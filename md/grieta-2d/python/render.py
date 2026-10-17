@@ -42,10 +42,11 @@ def lee_volcados(ruta: Path):
 
 def dibuja_campo(args_t):
     """Pinta el campo como imagen continua: para el fondo de la portada."""
-    (destino, xy, sig, vista, ancho, alto, fondo, smax, celda, sigma) = args_t
+    (destino, xy, sig, vista, ancho, alto, fondo, smax, celda, sigma,
+     sigma_dens) = args_t
     x0, x1, y0, y1 = vista
     campo, dens, lim = rejilla(xy, sig, celda=celda, sigma=sigma,
-                               sigma_dens=celda * 1.0)
+                               sigma_dens=sigma_dens)
     pal = tabla(256) / 255.0
     idx = np.clip(campo / smax, 0, 1)
     img = pal[(idx * 255).astype(int)]
@@ -125,6 +126,11 @@ def main() -> int:
     ap.add_argument("--procesos", type=int, default=8)
     ap.add_argument("--dibujo", choices=("atomos", "campo"), default="atomos")
     ap.add_argument("--celda", type=float, default=1.1)
+    ap.add_argument("--sigma-dens", type=float, default=1.05,
+                    help="suavizado de la densidad que marca el hueco de la "
+                         "grieta; tiene que ser del orden del espaciado "
+                         "atomico aunque la celda sea mas fina, o las celdas "
+                         "vacias entre atomos se marcan como hueco")
     args = ap.parse_args()
 
     cuadros = list(lee_volcados(Path(args.volcado)))
@@ -166,7 +172,8 @@ def main() -> int:
         nombre = destino / (f"f{k:04d}.png" if not args.frames else f"fija{i:04d}.png")
         if args.dibujo == "campo":
             tareas.append((str(nombre), xy, sig, vista, args.ancho, args.alto,
-                           fondo, smax, args.celda, args.suavizado))
+                           fondo, smax, args.celda, args.suavizado,
+                           args.sigma_dens))
         else:
             tareas.append((str(nombre), xy, sig, vista, args.ancho, args.alto,
                            fondo, smax, args.radio, args.claro))
