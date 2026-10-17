@@ -318,11 +318,11 @@ def peldano_pareja(args) -> dict:
 
 def compara(p: Params, ma: Malla, pesos: Pesos, z0, a_max, pol: Heuristica,
             iteraciones: int, imprime: int = 0, etiqueta: str = "",
-            arranque: str = "caliente"):
+            arranque: str = "caliente", disp_ref: float | None = None):
     """Heuristica (lazo cerrado) contra optimo (arrancando de ella, o de cero
     si `arranque` es "frio": sirve para medir cuanto aporta el arranque en
     caliente a esta escala)."""
-    pr = Problema(p, ma, pesos, z0, a_max=a_max)
+    pr = Problema(p, ma, pesos, z0, a_max=a_max, disp_ref=disp_ref)
     pi = func_accion(p, pol)
     t0 = time.perf_counter()
     Zh, Ah, esf = rollout_politica(p, pi, z0, ma.n, ma.h, ma.m, a_max=a_max)
@@ -334,6 +334,7 @@ def compara(p: Params, ma: Malla, pesos: Pesos, z0, a_max, pol: Heuristica,
         "etiqueta": etiqueta, "arranque": arranque,
         "coste_arranque": pr.desglose(A0),
         "construir_s": pr.t_construir, "heuristica_s": t_h, "optimo": info,
+        "disp_ref": pr.disp_ref,
         "heuristica": _resumen(Zh, Ah, p, ma, pr, esfuerzo=esf),
         "optimo_res": _resumen(Z, A, p, ma, pr),
     }

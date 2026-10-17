@@ -7,8 +7,9 @@
 #   ./run.sh escalera     solo los peldanos de comprobacion (~5 min)
 #   ./run.sh grande       solo el problema de 200 ovejas y 3 perros
 #   ./run.sh salidas      binario del visor, poster e informe
+#   ./run.sh espectacular rebano irregular y cohesion debil (horas)
 #
-# Variables utiles: ITER, NOVE, NPERRO, TFIN, NFRAMES, LMP.
+# Variables utiles: ITER, ITER_ESP, NOVE, NPERRO, TFIN, NFRAMES, KOO, LAMT, LMP.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -67,6 +68,28 @@ grande() {
         --iter "$ITER"
 }
 
+# Segunda parte: el mismo problema con un rebano que no es un disco, cohesion
+# debil (el rebano se deja deformar) y los perros repartidos, uno dentro del
+# propio rebano. El peso lam_t mantiene al grupo compacto durante todo el
+# trayecto, no solo al final.
+espectacular() {
+  paso "rebano irregular, cohesion debil, perros repartidos (horas)"
+  "$PY" python/experimento.py --n-o "$NOVE" --n-p "$NPERRO" --T "$TFIN" \
+        --escenario irregular --k-oo "${KOO:-0.3}" --lam-t "${LAMT:-0.3}" \
+        --iter "${ITER_ESP:-300}" --etiqueta espectacular
+
+  paso "binario, poster y pagina del caso espectacular"
+  "$PY" python/exporta.py --entrada tmp/espectacular.npz \
+        --resumen salida/escalera-espectacular.json --n "$NFRAMES" \
+        --salida salida/pastoreo-espectacular.herd2 \
+        --meta salida/pastoreo-espectacular-meta.json
+  "$PY" python/poster.py --herd salida/pastoreo-espectacular.herd2 \
+        --meta salida/pastoreo-espectacular-meta.json \
+        --salida salida/pastoreo-espectacular-poster.png --avance 0.3
+  cp salida/pastoreo-espectacular.herd2 salida/pastoreo-espectacular-meta.json \
+     salida/pastoreo-espectacular-poster.png web/
+}
+
 salidas() {
   paso "binario para el visor"
   "$PY" python/exporta.py --n "$NFRAMES"
@@ -87,10 +110,11 @@ salidas() {
 
 case "${1:-todo}" in
   escalera) prepara; escalera ;;
+  espectacular) prepara; espectacular ;;
   grande)   prepara; grande ;;
   salidas)  prepara; salidas ;;
   todo)     prepara; escalera; grande; salidas ;;
-  *) echo "uso: $0 [todo|escalera|grande|salidas]" >&2; exit 2 ;;
+  *) echo "uso: $0 [todo|escalera|grande|espectacular|salidas]" >&2; exit 2 ;;
 esac
 
 paso "listo"

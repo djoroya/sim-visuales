@@ -54,6 +54,7 @@ class Params:
     sigma: float = 50.0     # alcance de la repulsion del perro
     F_m: float = 5.0        # intensidad de la repulsion del perro
     eps: float = 1.0        # regularizacion de 1/r y de la norma
+    k_oo: float = 1.0       # escala de la interaccion oveja-oveja
     objetivo: tuple = (0.0, 0.0)
 
     @property
@@ -102,7 +103,11 @@ def _radial(A, B, g, eps, quita_diagonal=False):
 def campo(z, a, p: Params):
     """Campo vectorial f(z, a). `a` es 2 x n_p (aceleraciones de los perros)."""
     X, V, Y, W = trocea(z, p)
-    g_oo = lambda r: -(1.0 / r - 1.0 / p.r_oo)
+    # k_oo escala la interaccion oveja-oveja entera (atraccion y repulsion a
+    # la vez), de modo que no cambia el tamano de equilibrio del rebano, solo
+    # lo blando que es frente al perro: con k_oo = 1 es el modelo del TFM; por
+    # debajo, el rebano se deja deformar y abrir.
+    g_oo = lambda r: -p.k_oo * (1.0 / r - 1.0 / p.r_oo)
     g_pp = lambda r: -(1.0 / r - 1.0 / p.r_pp)
     g_op = lambda r: -p.F_m * ca.exp(-(r * r) / (p.sigma * p.sigma))
 
@@ -207,6 +212,60 @@ def estado_inicial(p: Params, semilla: int = 90210,
             Y[:, j] = np.asarray(centro) + (radio + 35.0) * (R @ e)
     else:
         Y = np.asarray(perros, dtype=float).reshape(2, p.n_p)
+
+    return np.concatenate([X.flatten(order="F"), np.zeros(2 * p.n_o),
+                           Y.flatten(order="F"), np.zeros(2 * p.n_p)])
+
+
+def estado_inicial_irregular(p: Params, semilla: int = 7) -> np.ndarray:
+    """Un rebano que no es un disco: una franja curva con dos grumos.
+
+    El disco de `estado_inicial` es el caso facil: compacto, simetrico y con
+    los perros ya colocados detras. Aqui el rebano es una banda curva de unas
+    350 unidades de largo con dos masas densas unidas por un puente ralo, y
+    los perros empiezan repartidos: uno *dentro* del grumo grande, otro al otro
+    lado de la banda y el tercero entre el rebano y el objetivo, es decir, en
+    el sitio donde mas estorba.
+
+    La columna vertebral es el arco
+
+        c(s) = (x0 + largo*s,  y0 + alto*sin(pi*s)),      s en [0, 1]
+
+    y las ovejas se reparten a lo largo de `s` con una mezcla de dos gaussianas
+    (los grumos) y un fondo uniforme (el puente), desplazadas en la direccion
+    normal con un ancho que tambien varia.
+    """
+    rng = np.random.default_rng(semilla)
+    x0, largo, y0, alto = -340.0, 300.0, 30.0, 260.0
+
+    n = p.n_o
+    partes = [(int(0.38 * n), lambda k: rng.normal(0.13, 0.045, k)),
+              (int(0.34 * n), lambda k: rng.normal(0.84, 0.040, k)),
+              (n - int(0.38 * n) - int(0.34 * n), lambda k: rng.uniform(0, 1, k))]
+    s = np.concatenate([f(k) for k, f in partes])
+    s = np.clip(s, 0.0, 1.0)
+
+    cx = x0 + largo * s
+    cy = y0 + alto * np.sin(np.pi * s)
+    # normal a la curva, normalizada
+    tx, ty = largo * np.ones_like(s), alto * np.pi * np.cos(np.pi * s)
+    norma = np.hypot(tx, ty)
+    nx, ny = -ty / norma, tx / norma
+    # el puente es un reguero estrecho; los grumos, dos manchas
+    ancho = 9.0 + 26.0 * np.exp(-((s - 0.13) / 0.09) ** 2) \
+        + 22.0 * np.exp(-((s - 0.84) / 0.07) ** 2)
+    # normal truncada: sin colas, para que la banda tenga borde
+    d = np.clip(rng.normal(0.0, 1.0, n), -1.8, 1.8) * ancho
+    X = np.stack([cx + nx * d, cy + ny * d])
+    X += rng.normal(0.0, 3.0, X.shape)
+
+    # perro 0 dentro del grumo grande, perro 1 al otro lado de la banda,
+    # perro 2 entre el rebano y el objetivo
+    dentro = np.array([x0 + largo * 0.13, y0 + alto * np.sin(np.pi * 0.13)])
+    Y = np.stack([dentro, np.array([-170.0, 360.0]), np.array([-60.0, 30.0])]).T
+    if p.n_p != 3:
+        Y = Y[:, :p.n_p] if p.n_p < 3 else np.hstack(
+            [Y, np.tile(dentro.reshape(2, 1), (1, p.n_p - 3))])
 
     return np.concatenate([X.flatten(order="F"), np.zeros(2 * p.n_o),
                            Y.flatten(order="F"), np.zeros(2 * p.n_p)])

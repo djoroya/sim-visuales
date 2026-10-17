@@ -70,7 +70,8 @@ class Problema:
     """Monta una vez el grafo y deja listas J(A), su gradiente y el solver."""
 
     def __init__(self, p: Params, malla: Malla, pesos: Pesos, z0: np.ndarray,
-                 a_max: float = 25.0, jit: bool = False):
+                 a_max: float = 25.0, jit: bool = False,
+                 disp_ref: float | None = None):
         self.p, self.malla, self.pesos, self.a_max = p, malla, pesos, a_max
         self.z0 = np.asarray(z0, dtype=float)
 
@@ -84,9 +85,18 @@ class Problema:
         obj = ca.DM(list(p.objetivo))
         X0 = ca.DM(self.z0[: 2 * p.n_o]).reshape((2, p.n_o))
         L2 = float(ca.sumsqr(media(X0) - obj))
-        # con una sola oveja la dispersion es identicamente nula: se deja sin
-        # normalizar en vez de dividir por cero (el termino vale 0 de todos modos)
-        D0 = float(dispersion(X0)) if p.n_o > 1 else 1.0
+        # La dispersion se mide en unidades de una referencia. Por defecto es
+        # la del estado inicial, que es lo natural cuando el rebano empieza
+        # compacto: "no dispersarlo mas de lo que ya esta". Si el rebano
+        # empieza desparramado eso no sirve -- la referencia seria enorme y el
+        # termino no mordria -- y conviene dar la dispersion del rebano en
+        # reposo (`disp_ref`), de modo que agrupar = 1 significa "tan junto
+        # como sabe estar".
+        if disp_ref is not None:
+            D0 = float(disp_ref)
+        else:
+            D0 = float(dispersion(X0)) if p.n_o > 1 else 1.0
+        self.disp_ref = D0
         self.L = np.sqrt(L2)
 
         S = _selector_media(p.n_o)

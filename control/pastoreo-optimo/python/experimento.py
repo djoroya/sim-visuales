@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from escalera import SALIDA, TMP, compara, guarda, titulo, _imprime_comparacion
-from modelo import Params, estado_inicial, medidas_np
+from modelo import Params, estado_inicial, estado_inicial_irregular, medidas_np
 from ocp import Malla, Pesos
 from politica import Heuristica
 
@@ -42,17 +42,30 @@ def main() -> int:
                     help="distancia perro-rebano de la heuristica (por defecto, "
                          "radio del rebano + 25)")
     ap.add_argument("--semilla", type=int, default=90210)
+    ap.add_argument("--escenario", choices=("disco", "irregular"), default="disco",
+                    help="disco: rebano compacto y perros detras; irregular: "
+                         "banda curva con dos grumos y perros repartidos, uno "
+                         "dentro del rebano")
+    ap.add_argument("--disp-ref", type=float, default=None,
+                    help="dispersion de referencia del coste; por defecto, la "
+                         "inicial. Con un rebano que empieza desparramado "
+                         "conviene dar la del rebano en reposo (~550)")
+    ap.add_argument("--k-oo", type=float, default=1.0,
+                    help="escala de la cohesion oveja-oveja; por debajo de 1 el "
+                         "rebano se deja deformar")
     ap.add_argument("--etiqueta", default="grande")
     ap.add_argument("--imprime", type=int, default=5)
     ap.add_argument("--arranque", choices=("caliente", "frio"), default="caliente")
     args = ap.parse_args()
 
     titulo(f"4. {args.n_o} ovejas y {args.n_p} perros")
-    p = Params(n_o=args.n_o, n_p=args.n_p)
+    p = Params(n_o=args.n_o, n_p=args.n_p, k_oo=args.k_oo)
     ma = Malla(T=args.T, n=args.n, m=args.m)
     pesos = Pesos(lam=args.lam, bet=args.bet, gam=args.gam, lam_t=args.lam_t)
-    radio = 45.0
-    z0 = estado_inicial(p, semilla=args.semilla, radio=radio)
+    if args.escenario == "irregular":
+        z0 = estado_inicial_irregular(p, semilla=args.semilla)
+    else:
+        z0 = estado_inicial(p, semilla=args.semilla, radio=45.0)
 
     # con 200 ovejas el rebano mide mas que con 30, y la heuristica del TFM
     # lleva al perro a una distancia fija del centro: si se queda corta, el
@@ -60,21 +73,26 @@ def main() -> int:
     r_pos = args.r_pos
     if r_pos is None:
         X0 = z0[: 2 * p.n_o].reshape(2, p.n_o, order="F")
-        r_pos = float(np.sqrt(((X0 - X0.mean(axis=1, keepdims=True)) ** 2)
-                              .sum(axis=0).max())) + 25.0
+        radios = np.sqrt(((X0 - X0.mean(axis=1, keepdims=True)) ** 2).sum(axis=0))
+        # con un rebano irregular el radio maximo lo fija una oveja suelta, asi
+        # que se usa el percentil 80: la heuristica no tiene por que colocar a
+        # los perros fuera del alcance de todo el grupo
+        r_pos = float(np.percentile(radios, 80)) + 25.0
     pol = Heuristica(r_pos=r_pos)
     print(f"  heuristica con r_pos = {r_pos:.0f}")
 
     t0 = time.perf_counter()
     res, (Zh, Ah, esf), (Z, A), pr = compara(
         p, ma, pesos, z0, args.a_max, pol, args.iter, imprime=args.imprime,
-        etiqueta=args.etiqueta, arranque=args.arranque)
+        etiqueta=args.etiqueta, arranque=args.arranque, disp_ref=args.disp_ref)
     res["total_s"] = time.perf_counter() - t0
     res["malla"] = {"T": ma.T, "n": ma.n, "m": ma.m, "h": ma.h, "dt": ma.dt}
     res["pesos"] = {"lam": pesos.lam, "bet": pesos.bet, "gam": pesos.gam,
                     "lam_t": pesos.lam_t}
     res["a_max"] = args.a_max
     res["r_pos"] = r_pos
+    res["escenario"] = args.escenario
+    res["k_oo"] = p.k_oo
     res["variables"] = 2 * p.n_p * ma.n
     res["n_o"], res["n_p"] = p.n_o, p.n_p
 

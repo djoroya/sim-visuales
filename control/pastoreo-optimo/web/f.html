@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><title>forma</title>
+<style>body{margin:1rem;font:14px system-ui}#c{max-width:70rem}</style><div id="c"></div>
+<script type="module">
+import { montaComparacion } from './visor.js'
+const v = await montaComparacion(document.querySelector('#c'), {datos:'f.herd2', meta:'f.json', controles:false, radioOveja:5})
+v.para(); v.irA(0)
+</script>
