@@ -1,6 +1,6 @@
 /**
- * Lectura del binario .nw. Va aparte del visor y **no depende de three**:
- * asi se puede probar en Node sin instalar nada.
+ * Lectura del binario .nw. Va aparte del visor y no depende de three, para
+ * poder probarlo en Node sin instalar nada.
  */
 
 /**

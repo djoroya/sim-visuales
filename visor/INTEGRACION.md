@@ -11,11 +11,13 @@ Copiar a `personalpage`:
 | De aquí | A la web |
 |---|---|
 | `md/nanohilo-cu/salida/nanohilo-cu.nw` | `public/md/nanohilo-cu.nw` |
+| `md/nanohilo-cu/salida/nanohilo-cu-meta.json` | `public/md/nanohilo-cu-meta.json` |
 | `md/nanohilo-cu/salida/nanohilo-cu-poster.png` | `public/md/nanohilo-cu-poster.png` |
-| `visor/src/nanohilo.js` y `visor/src/carga.js` | `src/visores/` |
+| todo `visor/src/` | `src/visores/nanohilo/` |
 
-Y `npm i three` en la web. (O publicar este visor como paquete y depender de
-él; para un solo consumidor, copiar los dos ficheros es más simple.)
+Y `npm i three plotly.js-basic-dist-min` en la web (sin la gráfica basta
+`three`). También se podría publicar el visor como paquete y depender de él;
+para un solo consumidor, copiar la carpeta es más simple.
 
 ## 2. La isla
 
@@ -40,12 +42,17 @@ const { alto = '16 / 7' } = Astro.props
 </figure>
 
 <script>
-  import { cargaVisor } from '../visores/carga.js'
+  import { cargaVisor } from '../visores/nanohilo/carga.js'
 
   const caja = document.getElementById('nanohilo')
   cargaVisor(caja, {
     datos: '/md/nanohilo-cu.nw',
+    meta: '/md/nanohilo-cu-meta.json',
     poster: '/md/nanohilo-cu-poster.png',
+    // en la portada, solo la animación; la curva y los controles, en la
+    // página del proyecto
+    controles: false,
+    grafica: false,
     alMontar: () => caja.querySelector('img')?.remove(),
   })
 </script>
@@ -70,11 +77,19 @@ tiene `prefers-reduced-motion` o no hay WebGL: en esos casos se queda el
 
 | | Transferido |
 |---|---:|
-| Póster PNG (siempre) | 53 KiB |
-| `three` + visor, al entrar en pantalla (gzip) | 167 KiB |
-| Trayectoria `.nw` (gzip) | 793 KiB |
-| **Total si se ve la animación** | **≈ 1,0 MiB** |
-| **Total si no se ve (móvil con poco movimiento, sin WebGL, no baja hasta ahí)** | **53 KiB** |
+| Póster PNG (siempre) | 52 KiB |
+| `carga.js`, en el HTML | 0,4 KiB |
+| `three` + visor + interfaz, al entrar en pantalla | 167 KiB |
+| Trayectoria `.nw` | 797 KiB |
+| Tiempos, ε y curva (`meta.json`) | 2 KiB |
+| Plotly, solo si se monta la gráfica | 436 KiB |
+| **Total con animación, sin gráfica** | **≈ 1,0 MiB** |
+| **Total con animación y gráfica** | **≈ 1,4 MiB** |
+| **Si no se llega a ver** (reduced-motion, sin WebGL, o no baja hasta ahí) | **52 KiB** |
+
+Por eso el componente de arriba pone `grafica: false` en la portada: una
+curva de 363 puntos no justifica 436 KiB en la primera pantalla. En la página
+del proyecto, donde el visitante ya ha decidido mirar, sí.
 
 Con brotli en lugar de gzip, el `.nw` baja a unos 650 KiB. Merece la pena
 comprobar que el servidor comprime `.nw`: no es una extensión conocida y

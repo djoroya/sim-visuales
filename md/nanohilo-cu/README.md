@@ -110,10 +110,18 @@ incremento se calcula contra la posición que va a reconstruir el visor, no
 contra la exacta, para que el error no se acumule: el error máximo de
 reconstrucción es de 0,035 Å, una treintava parte del radio atómico.
 
+Junto al binario, `salida/nanohilo-cu-meta.json` lleva lo que necesita la
+interfaz del visor: tiempo simulado y deformación de cada fotograma, y la
+curva tensión-deformación remuestreada a ~360 puntos para dibujarla al lado
+de la animación. Va aparte del `.nw` porque son cuatro cifras por fotograma y
+así el binario no cambia de versión cada vez que la interfaz necesita un dato
+más.
+
 | Fichero | Tamaño |
 |---|---:|
-| `salida/nanohilo-cu.nw` | 1,78 MiB (**793 KiB** servido con gzip) |
-| `salida/nanohilo-cu-poster.png` | 267 KiB |
+| `salida/nanohilo-cu.nw` | 1,78 MiB (**797 KiB** servido con gzip) |
+| `salida/nanohilo-cu-meta.json` | 5,7 KiB (2,2 KiB con gzip) |
+| `salida/nanohilo-cu-poster.png` | 53 KiB |
 | `salida/tension-deformacion.svg` | 74 KiB |
 
 El visor está en [`../../visor`](../../visor), y
@@ -144,7 +152,8 @@ Los ficheros pesados (volcados, logs) se quedan en `datos/`, fuera de git.
 | `lammps/in.nanohilo` | el ensayo de tracción |
 | `python/tabla.py` | la tabla de validación |
 | `python/curva.py` | la curva tensión-deformación en SVG |
-| `python/exporta.py` | el binario `.nw` para el visor |
+| `python/exporta.py` | el binario `.nw` y el `meta.json` para el visor |
+| `python/vista_previa.py` | hoja de contacto para revisar la animación sin navegador |
 | `python/render.py` | el póster de respaldo |
 
 ## Referencia

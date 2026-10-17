@@ -76,6 +76,53 @@ def roto(pos_x: np.ndarray, xlo: float, xhi: float, rodaja: float = 5.0) -> bool
     return bool(np.any(vacias[:-1] & vacias[1:]))
 
 
+def media_movil(y: np.ndarray, n: int) -> np.ndarray:
+    if n <= 1:
+        return y
+    pad = n // 2
+    ext = np.r_[np.full(pad, y[0]), y, np.full(pad, y[-1])]
+    return np.convolve(ext, np.ones(n) / n, "same")[pad:pad + y.size]
+
+
+def escribe_meta(args, n, nat, pasos, eps) -> None:
+    """Lo que necesita la interfaz del visor: tiempo y deformacion de cada
+    fotograma, y la curva tension-deformacion para dibujarla al lado.
+
+    Va en un JSON aparte y no dentro del .nw porque son cuatro cifras por
+    fotograma: cabe de sobra y asi el binario no cambia de version cada vez
+    que la interfaz necesita un dato mas."""
+    meta = {
+        "atomos": int(nat),
+        "fotogramas": int(n),
+        "dt_ps": float(args.dt),
+        "t_ps": [round(float(p * args.dt), 4) for p in pasos],
+        "eps": [round(float(e), 6) for e in eps],
+    }
+
+    curva = Path(args.curva)
+    if curva.exists():
+        d = np.loadtxt(curva)
+        ce, cs = d[:, 0], media_movil(d[:, 1], 15)
+        # recortamos la curva al tramo que se anima, para que el punto que la
+        # recorre llegue justo al final
+        dentro = ce <= float(eps[-1]) * 1.001
+        ce, cs = ce[dentro], cs[dentro]
+        k = max(1, ce.size // args.puntos_curva)
+        meta["curva"] = {
+            "eps": [round(float(v), 5) for v in ce[::k]],
+            "sigma": [round(float(v), 4) for v in cs[::k]],
+            "suavizado": 15,
+        }
+        i_max = int(np.argmax(cs))
+        meta["limite_elastico"] = {"eps": round(float(ce[i_max]), 5),
+                                   "sigma": round(float(cs[i_max]), 3)}
+
+    destino = Path(args.meta)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_text(json.dumps(meta, separators=(",", ":")))
+    print(f"meta en {destino} ({destino.stat().st_size / 1024:.0f} KiB)")
+
+
 def main() -> int:
     raiz = Path(__file__).resolve().parents[1]
     ap = argparse.ArgumentParser()
@@ -87,6 +134,11 @@ def main() -> int:
                     help="angstroms por unidad de cuantizacion")
     ap.add_argument("--cola", type=int, default=8,
                     help="fotogramas que se conservan despues de la rotura")
+    ap.add_argument("--dt", type=float, default=0.002,
+                    help="ps por paso de integracion, para el tiempo simulado")
+    ap.add_argument("--curva", default=str(raiz / "datos" / "curva.txt"))
+    ap.add_argument("--meta", default=str(raiz / "salida" / "nanohilo-cu-meta.json"))
+    ap.add_argument("--puntos-curva", type=int, default=320)
     args = ap.parse_args()
 
     rutas = ordena(Path(args.frames).glob("hilo.*.lammpstrj"))
@@ -105,6 +157,7 @@ def main() -> int:
 
     idx = np.unique(np.linspace(0, i_fin, min(args.n, i_fin + 1)).round().astype(int))
     n = idx.size
+    pasos = np.array([int(rutas[i].name.split(".")[1]) for i in idx])
 
     # --- 2) centrar la rotura en el encuadre --------------------------------
     pf, _, lof, hif = todo[idx[-1]]
@@ -194,6 +247,8 @@ def main() -> int:
     Path(args.control).write_text(json.dumps(
         {"nAtomos": nat, "nFrames": n, "errorReconstruccion": err,
          "muestras": muestras}, indent=1))
+
+    escribe_meta(args, n, nat, pasos, eps)
 
     print(f"{n} fotogramas x {nat} atomos  ->  {len(crudo) / 1024:.0f} KiB "
           f"({len(comprimido) / 1024:.0f} KiB con gzip)")

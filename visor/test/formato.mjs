@@ -6,7 +6,7 @@
  *                         ../md/nanohilo-cu/datos/control.json
  */
 import { readFileSync } from 'node:fs'
-import { parsea } from '../src/nanohilo.js'
+import { parsea } from '../src/formato.js'
 
 const [ruta, rutaControl] = process.argv.slice(2)
 const buf = readFileSync(ruta)

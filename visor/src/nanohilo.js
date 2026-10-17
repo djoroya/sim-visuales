@@ -1,120 +1,43 @@
 /**
- * Visor de la trayectoria de dinamica molecular del nanohilo de cobre.
- *
- * Dibuja los atomos con un InstancedMesh y va interpolando entre los
- * fotogramas del fichero .nw que produce md/nanohilo-cu/python/exporta.py.
+ * Visor de una trayectoria de dinámica molecular empaquetada en un .nw.
  *
  *   import { montaVisor } from './nanohilo.js'
  *   const visor = await montaVisor(document.querySelector('#hilo'), {
  *     datos: '/nanohilo-cu.nw',
+ *     meta: '/nanohilo-cu-meta.json',
  *     poster: '/nanohilo-cu-poster.png',
  *   })
  *
- * Solo importa de three lo que usa, para que el paquete salga pequeno.
+ * Monta la escena, los adornos (ejes, escala, leyenda), la barra de tiempo y
+ * —si hay curva en el meta— la gráfica tensión-deformación sincronizada.
+ * Sin WebGL deja el póster; con prefers-reduced-motion dibuja un fotograma
+ * fijo y no arranca la animación, pero deja los controles para mirarla a mano.
  */
 
-import {
-  AmbientLight,
-  Color,
-  DirectionalLight,
-  DynamicDrawUsage,
-  IcosahedronGeometry,
-  InstancedBufferAttribute,
-  InstancedMesh,
-  MeshLambertMaterial,
-  OrthographicCamera,
-  Scene,
-  WebGLRenderer,
-} from 'three'
-
-// --- paleta: la misma que el resto de la marca ------------------------------
-const COLOR_FCC = 0xccd6e0        // cristal perfecto, gris muy claro
-const COLOR_HCP = 0x14519b        // falla de apilamiento: el azul de la marca
-const COLOR_OTRO = 0x4a7fbf       // bcc, icosaedrico
-const COLOR_SUP = 0xaab8c6        // superficie libre y desorden
-
-const PALETA = [COLOR_SUP, COLOR_FCC, COLOR_HCP, COLOR_OTRO, COLOR_OTRO, COLOR_SUP]
+import { parsea } from './formato.js'
+import { montaEscena } from './escena.js'
+import { montaEjes, montaEscala, montaLeyenda } from './adornos.js'
+import { montaControles } from './controles.js'
+import { ponEstilos } from './estilos.js'
 
 const POR_DEFECTO = {
-  datos: 'nanohilo-cu.nw',
+  datos: 'trayectoria.nw',
+  meta: null,
   poster: null,
-  duracion: 9,            // segundos que dura una pasada completa
-  pausaFinal: 0.9,        // segundos parado al final, antes de volver a empezar
-  entrada: 0.45,          // segundos que tardan los atomos en aparecer
-  salida: 0.55,           // segundos que tardan en desaparecer
-  radio: 1.28,            // radio del atomo de Cu en A
-  giro: 0.08,             // vueltas por segundo alrededor del eje del hilo
-  inclinacion: 0.05,      // ligera inclinacion del eje del hilo, radianes
-  margen: 1.06,           // holgura del encuadre
+  duracion: 9,            // segundos de una pasada completa
+  pausaFinal: 0.9,
+  entrada: 0.45,
+  salida: 0.55,
+  radio: 1.28,            // radio del átomo, en Å
+  giro: 0.08,             // vueltas por segundo alrededor del eje
+  inclinacion: 0.05,
+  margen: 1.06,
   dprMax: 1.75,
-}
-
-/**
- * Lee el binario .nw (formato NWIRE2): el primer fotograma viene con las
- * posiciones cuantizadas a 16 bits y los demas como incrementos de un byte
- * respecto al anterior. Se exporta para poder comprobarlo sin navegador.
- */
-export function parsea(buffer) {
-  const vista = new DataView(buffer)
-  const magia = new TextDecoder().decode(new Uint8Array(buffer, 0, 6))
-  if (magia !== 'NWIRE2') throw new Error('fichero de trayectoria no valido')
-
-  const nAtomos = vista.getUint32(8, true)
-  const nFrames = vista.getUint16(12, true)
-  const origen = [16, 20, 24].map((o) => vista.getFloat32(o, true))
-  const paso = vista.getFloat32(28, true)
-  const lx0 = vista.getFloat32(32, true)
-  const lxFin = vista.getFloat32(36, true)
-
-  let p = 40
-  const eps = new Float32Array(buffer.slice(p, p + 4 * nFrames))
-  p += 4 * nFrames
-
-  const bytes = new Uint8Array(buffer)
-  const pos = new Float32Array(nFrames * nAtomos * 3)
-  const q = new Int32Array(nAtomos * 3)
-
-  // fotograma 0: plano de bytes altos y plano de bajos, por componente
-  for (let c = 0; c < 3; c++) {
-    const alto = p
-    const bajo = p + nAtomos
-    p += 2 * nAtomos
-    for (let i = 0; i < nAtomos; i++) {
-      const v = bytes[alto + i] * 256 + bytes[bajo + i]
-      q[i * 3 + c] = v
-      pos[i * 3 + c] = origen[c] + v * paso
-    }
-  }
-
-  // resto de fotogramas: incrementos con signo sobre el anterior
-  const deltas = new Int8Array(buffer, p, (nFrames - 1) * nAtomos * 3)
-  let d = 0
-  for (let f = 1; f < nFrames; f++) {
-    const base = f * nAtomos * 3
-    for (let c = 0; c < 3; c++) {
-      for (let i = 0; i < nAtomos; i++) {
-        const k = i * 3 + c
-        q[k] += deltas[d++]
-        pos[base + k] = origen[c] + q[k] * paso
-      }
-    }
-  }
-  p += deltas.length
-
-  const tipos = new Uint8Array(buffer, p, nFrames * nAtomos)
-  // tamano de la caja que ocupa la trayectoria entera, para encuadrar
-  const tam = [0, 0, 0]
-  for (let c = 0; c < 3; c++) {
-    let mn = Infinity
-    let mx = -Infinity
-    for (let k = c; k < pos.length; k += 3) {
-      if (pos[k] < mn) mn = pos[k]
-      if (pos[k] > mx) mx = pos[k]
-    }
-    tam[c] = mx - mn
-  }
-
-  return { nAtomos, nFrames, origen, paso, lx0, lxFin, tam, eps, pos, tipos }
+  anchoDosColumnas: 860,  // px a partir de los cuales la gráfica va al lado
+  adornos: true,
+  controles: true,
+  grafica: true,
+  descripcion: 'Trayectoria de dinámica molecular',
 }
 
 function hayWebGL() {
@@ -127,207 +50,99 @@ function hayWebGL() {
   }
 }
 
-function ponPoster(contenedor, poster) {
+function ponPoster(padre, poster, alt) {
   if (!poster) return null
   const img = document.createElement('img')
   img.src = poster
-  img.alt = 'Nanohilo de cobre roto por traccion, simulado con dinamica molecular'
+  img.alt = alt
   img.decoding = 'async'
   img.loading = 'lazy'
-  Object.assign(img.style, { width: '100%', height: '100%', objectFit: 'contain' })
-  contenedor.appendChild(img)
+  padre.appendChild(img)
   return img
 }
 
 export async function montaVisor(contenedor, opciones = {}) {
   const cfg = { ...POR_DEFECTO, ...opciones }
+  ponEstilos()
+  contenedor.classList.add('nw')
+
+  const vista = document.createElement('div')
+  vista.className = 'nw-vista'
+  contenedor.appendChild(vista)
+
   if (!hayWebGL()) {
-    ponPoster(contenedor, cfg.poster)
-    return { destruye() {} }
+    ponPoster(vista, cfg.poster, cfg.descripcion)
+    return { destruye() { vista.remove() } }
   }
 
-  const respuesta = await fetch(cfg.datos)
-  if (!respuesta.ok) throw new Error(`no se pudo cargar ${cfg.datos}`)
-  const datos = parsea(await respuesta.arrayBuffer())
-  const { nAtomos, nFrames, pos, tipos, tam } = datos
-
-  // --- escena ---------------------------------------------------------------
-  const escena = new Scene()
-  // al girar sobre su eje el hilo ocupa su diagonal: hay que reservarla
-  const semiAlto = Math.hypot(tam[1], tam[2]) * cfg.margen
-  const camara = new OrthographicCamera(-1, 1, 1, -1, -4000, 4000)
-  camara.position.set(0, 0, 500)
-
-  const render = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' })
-  render.setClearAlpha(0)
-  contenedor.appendChild(render.domElement)
-  Object.assign(render.domElement.style,
-    { width: '100%', height: '100%', display: 'block', touchAction: 'pan-y' })
-
-  escena.add(new AmbientLight(0xffffff, 1.65))
-  const sol = new DirectionalLight(0xffffff, 1.5)
-  sol.position.set(-0.4, 0.8, 1)
-  escena.add(sol)
-  const relleno = new DirectionalLight(0xdce6f2, 0.7)
-  relleno.position.set(0.6, -0.5, -0.8)
-  escena.add(relleno)
-
-  const geometria = new IcosahedronGeometry(cfg.radio, 0)
-  const material = new MeshLambertMaterial({ flatShading: true })
-  const malla = new InstancedMesh(geometria, material, nAtomos)
-  malla.instanceMatrix.setUsage(DynamicDrawUsage)
-  malla.frustumCulled = false
-  escena.add(malla)
-
-  // colores: tabla fija, se escriben directamente en el atributo
-  const colores = new Float32Array(nAtomos * 3)
-  malla.instanceColor = new InstancedBufferAttribute(colores, 3)
-  malla.instanceColor.setUsage(DynamicDrawUsage)
-  const rgb = PALETA.map((c) => new Color(c))
-
-  // --- matrices de instancia: solo traslacion, se escriben a mano -----------
-  const m = malla.instanceMatrix.array
-  for (let i = 0; i < nAtomos; i++) {
-    const o = i * 16
-    m[o] = 1; m[o + 5] = 1; m[o + 10] = 1; m[o + 15] = 1
-  }
-
-  function pinta(fa, fb, t, escala = 1) {
-    const base_a = fa * nAtomos * 3
-    const base_b = fb * nAtomos * 3
-    const ta = fa * nAtomos
-    const tb = fb * nAtomos
-    const s = 1 - t
-    for (let i = 0; i < nAtomos; i++) {
-      const a = base_a + i * 3
-      const b = base_b + i * 3
-      const o = i * 16
-      m[o] = escala; m[o + 5] = escala; m[o + 10] = escala
-      // si el atomo cruza el borde periodico, no se interpola: se salta
-      const dx = pos[b] - pos[a]
-      m[o + 12] = Math.abs(dx) > tam[0] * 0.5 ? pos[b] : pos[a] * s + pos[b] * t
-      m[o + 13] = pos[a + 1] * s + pos[b + 1] * t
-      m[o + 14] = pos[a + 2] * s + pos[b + 2] * t
-
-      const ca = rgb[tipos[ta + i]] || rgb[0]
-      const cb = rgb[tipos[tb + i]] || rgb[0]
-      const c = i * 3
-      colores[c] = ca.r * s + cb.r * t
-      colores[c + 1] = ca.g * s + cb.g * t
-      colores[c + 2] = ca.b * s + cb.b * t
-    }
-    malla.instanceMatrix.needsUpdate = true
-    malla.instanceColor.needsUpdate = true
-  }
-
-  // --- encuadre -------------------------------------------------------------
-  let ancho = 1
-  let alto = 1
-  function redimensiona() {
-    const r = contenedor.getBoundingClientRect()
-    ancho = Math.max(1, r.width)
-    alto = Math.max(1, r.height)
-    render.setPixelRatio(Math.min(window.devicePixelRatio || 1, cfg.dprMax))
-    render.setSize(ancho, alto, false)
-    // el encuadre se fija a la longitud final del hilo: se ve como se estira
-    const necesarioX = tam[0] * cfg.margen
-    const necesarioY = semiAlto
-    const escala = Math.max(necesarioX / ancho, necesarioY / alto)
-    camara.left = -ancho * escala * 0.5
-    camara.right = ancho * escala * 0.5
-    camara.top = alto * escala * 0.5
-    camara.bottom = -alto * escala * 0.5
-    camara.updateProjectionMatrix()
-  }
-  redimensiona()
-  const observadorTam = new ResizeObserver(redimensiona)
-  observadorTam.observe(contenedor)
-
-  // --- interaccion: arrastrar para girar ------------------------------------
-  let giroManual = 0
-  let arrastrando = false
-  let xPrev = 0
-  const lienzo = render.domElement
-  lienzo.addEventListener('pointerdown', (e) => {
-    arrastrando = true
-    xPrev = e.clientX
-    lienzo.setPointerCapture(e.pointerId)
-  })
-  lienzo.addEventListener('pointermove', (e) => {
-    if (!arrastrando) return
-    giroManual += (e.clientX - xPrev) * 0.01
-    xPrev = e.clientX
-  })
-  const suelta = () => { arrastrando = false }
-  lienzo.addEventListener('pointerup', suelta)
-  lienzo.addEventListener('pointercancel', suelta)
-
-  // --- bucle ----------------------------------------------------------------
   const quieto = window.matchMedia('(prefers-reduced-motion: reduce)')
-  let visible = true
-  let corriendo = false
-  let t0 = 0
-  let peticion = 0
 
-  const ciclo = cfg.duracion + cfg.pausaFinal
+  const [datos, meta] = await Promise.all([
+    fetch(cfg.datos).then((r) => {
+      if (!r.ok) throw new Error(`no se pudo cargar ${cfg.datos}`)
+      return r.arrayBuffer()
+    }).then(parsea),
+    cfg.meta
+      ? fetch(cfg.meta).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+      : null,
+  ])
 
-  function dibuja(ahora) {
-    peticion = requestAnimationFrame(dibuja)
-    if (!t0) t0 = ahora
-    const t = ((ahora - t0) / 1000) % ciclo
-    const avance = Math.min(t / cfg.duracion, 1)
-    const u = avance * (nFrames - 1)
-    const fa = Math.floor(u)
-    // los atomos encogen al final y crecen al principio: el bucle cierra
-    // sin corte y sin tener que recurrir a transparencias
-    const entra = Math.min(t / cfg.entrada, 1)
-    const sale = Math.min((ciclo - t) / cfg.salida, 1)
-    const escala = Math.min(entra, sale) ** 2
-    pinta(fa, Math.min(fa + 1, nFrames - 1), u - fa, escala)
-    malla.rotation.x = giroManual + ((ahora - t0) / 1000) * cfg.giro * Math.PI * 2
-    malla.rotation.z = cfg.inclinacion
-    render.render(escena, camara)
+  // si el .nw trae deformación por fotograma y no hay meta, al menos eso
+  const info = meta || { fotogramas: datos.nFrames, eps: Array.from(datos.eps) }
+
+  const escena = montaEscena(vista, datos, cfg)
+
+  const piezas = []
+  if (cfg.adornos) {
+    const ejes = montaEjes(vista, escena)
+    const escala = montaEscala(vista, escena)
+    piezas.push(ejes, escala, montaLeyenda(vista))
+    const corta = escena.suscribe(() => { ejes.actualiza(); escala.actualiza() })
+    piezas.push({ destruye: corta })
   }
+  if (cfg.controles) piezas.push(montaControles(contenedor, escena, info))
 
-  function arranca() {
-    if (corriendo) return
-    corriendo = true
-    t0 = 0
-    peticion = requestAnimationFrame(dibuja)
-  }
-  function para() {
-    corriendo = false
-    cancelAnimationFrame(peticion)
-  }
+  // dos columnas cuando hay sitio y hay algo que poner al lado; en móvil, la
+  // gráfica cae debajo
+  const habraGrafica = cfg.grafica && !!info.curva
+  const mide = new ResizeObserver(() => {
+    contenedor.classList.toggle('nw--ancho',
+      habraGrafica && contenedor.clientWidth >= cfg.anchoDosColumnas)
+  })
+  mide.observe(contenedor)
 
-  function fijo() {
-    // con prefers-reduced-motion: el fotograma mas vistoso, sin animacion
-    const f = Math.round((nFrames - 1) * 0.72)
-    pinta(f, f, 0, 1)
-    malla.rotation.x = 0.42
-    malla.rotation.z = cfg.inclinacion
-    render.render(escena, camara)
-  }
-
-  const observador = new IntersectionObserver((entradas) => {
-    visible = entradas[0].isIntersecting
-    if (visible && !quieto.matches) arranca()
-    else para()
+  // se pausa fuera de pantalla; con reduced-motion no arranca sola
+  let visible = false
+  const mirilla = new IntersectionObserver(([e]) => {
+    visible = e.isIntersecting
+    if (visible && !quieto.matches) escena.reproduce()
+    else escena.pausa()
   }, { threshold: 0.05 })
-  observador.observe(contenedor)
+  mirilla.observe(contenedor)
 
-  if (quieto.matches) fijo()
+  if (quieto.matches) escena.irA(0.72)   // un fotograma representativo
+
+  // la gráfica es lo más pesado: se carga la última y sin bloquear
+  let grafica = null
+  if (habraGrafica) {
+    import('./grafica.js')
+      .then(({ montaGrafica }) => montaGrafica(contenedor, escena, info))
+      .then((g) => { grafica = g })
+      .catch(() => {})
+  }
 
   return {
+    escena,
+    datos,
+    meta: info,
     destruye() {
-      para()
-      observador.disconnect()
-      observadorTam.disconnect()
-      geometria.dispose()
-      material.dispose()
-      malla.dispose()
-      render.dispose()
-      render.domElement.remove()
+      mirilla.disconnect()
+      mide.disconnect()
+      grafica?.destruye()
+      for (const p of piezas) p.destruye()
+      escena.destruye()
+      vista.remove()
+      contenedor.classList.remove('nw', 'nw--ancho')
     },
   }
 }

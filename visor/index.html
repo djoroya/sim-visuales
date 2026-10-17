@@ -12,13 +12,17 @@
         color: #27323d;
         font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
       }
-      main { max-width: 68rem; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+      main { max-width: 74rem; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
       h1 { font-size: 1.6rem; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 .3rem; }
-      p.sub { color: #5b6b7b; margin: 0 0 2rem; }
-      #hilo { width: 100%; aspect-ratio: 16 / 7; }
-      .franja { background: #f4f7fa; padding: 2rem 0; margin: 2rem 0; }
-      .franja #hilo2 { width: min(60rem, 92vw); margin: 0 auto; aspect-ratio: 16 / 6; }
-      code { background: #f1f4f8; padding: .1em .35em; border-radius: 3px; font-size: .9em; }
+      h2 { font-size: 1.05rem; font-weight: 600; margin: 0 0 .9rem; }
+      p.sub { color: #5b6b7b; margin: 0 0 2rem; max-width: 46rem; }
+      .franja { background: #f4f7fa; padding: 2.5rem 1.5rem; margin: 3rem -1.5rem 0; }
+      .franja .dentro { max-width: 52rem; margin: 0 auto; }
+      /* el visor trae sus propios estilos: aquí solo se le da el ancho y,
+         si se quiere, otra proporción para el lienzo */
+      #hilo2 { --nw-proporcion: 16 / 6; }
+      footer { color: #5b6b7b; font-size: .9rem; margin-top: 3rem; }
+      a { color: #14519b; }
     </style>
   </head>
   <body>
@@ -26,19 +30,21 @@
       <h1>Ensayo de tracción de un nanohilo de cobre</h1>
       <p class="sub">
         Dinámica molecular con LAMMPS, potencial EAM de Mishin et al. (2001).
-        Azul: fallas de apilamiento; gris claro: cristal fcc y superficie libre.
+        5780 átomos a 300 K, estirados a 5·10⁹ s⁻¹ hasta que rompen. Arrastra
+        el hilo para girarlo, o la barra para ir a cualquier instante.
       </p>
 
       <div id="hilo"></div>
 
       <div class="franja">
-        <div id="hilo2"></div>
+        <div class="dentro">
+          <h2>Sin gráfica, sobre fondo claro</h2>
+          <div id="hilo2"></div>
+          <footer>
+            El lienzo es transparente, así que toma el color de la página.
+          </footer>
+        </div>
       </div>
-
-      <p>
-        El mismo visor sobre fondo claro: el lienzo es transparente, así que
-        toma el color de la página. Arrastra para girar el hilo.
-      </p>
     </main>
 
     <script type="module" src="/src/demo.js"></script>

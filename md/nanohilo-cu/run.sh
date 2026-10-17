@@ -69,9 +69,7 @@ salidas() {
   "$PY" python/vista_previa.py --filas 8
 
   paso "comprobaciones del visor"
-  ( cd ../../visor && node test/formato.mjs \
-      ../md/nanohilo-cu/salida/nanohilo-cu.nw \
-      ../md/nanohilo-cu/datos/control.json && node test/fallback.mjs )
+  ( cd ../../visor && npm test )
 
   printf '\n'
   ls -lh salida | sed 's/^/  /'

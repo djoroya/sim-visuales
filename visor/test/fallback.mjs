@@ -1,27 +1,37 @@
 /**
- * Comprueba, con un DOM de mentira y sin WebGL, que el visor no revienta y
- * deja puesto el poster. Es la rama que veran los navegadores sin WebGL.
+ * Sin WebGL el visor tiene que dejar el póster y no lanzar. Se prueba con
+ * jsdom, cuyo canvas no da contexto WebGL: justo el caso que interesa.
  */
-import { montaVisor } from '../src/nanohilo.js'
+import { JSDOM } from 'jsdom'
 
-const hijos = []
-const elemento = () => ({
-  style: {}, dataset: {}, appendChild(h) { hijos.push(h) },
-  getContext: () => null, getBoundingClientRect: () => ({ width: 800, height: 350 }),
-  addEventListener() {}, remove() {},
+const dom = new JSDOM('<!doctype html><body><div id="c"></div></body>')
+globalThis.window = dom.window
+globalThis.document = dom.window.document
+globalThis.ResizeObserver = class { observe() {} disconnect() {} }
+globalThis.IntersectionObserver = class { observe() {} disconnect() {} }
+
+const { montaVisor } = await import('../src/nanohilo.js')
+
+const caja = document.getElementById('c')
+const visor = await montaVisor(caja, {
+  poster: '/poster.png',
+  descripcion: 'imagen de respaldo',
 })
 
-globalThis.document = { createElement: elemento }
-globalThis.window = {
-  WebGLRenderingContext: undefined,
-  matchMedia: () => ({ matches: false }),
-  devicePixelRatio: 1,
+const img = caja.querySelector('img')
+let fallos = 0
+const ok = (cond, nombre) => {
+  if (!cond) fallos++
+  console.log(`${cond ? 'ok   ' : 'FALLA'} ${nombre}`)
 }
 
-const contenedor = elemento()
-const visor = await montaVisor(contenedor, { poster: '/poster.png' })
+ok(!!img, 'sin WebGL se pone el póster')
+ok(img?.getAttribute('src') === '/poster.png', 'con la ruta indicada')
+ok(img?.getAttribute('alt') === 'imagen de respaldo', 'y con texto alternativo')
+ok(!caja.querySelector('canvas'), 'y no se crea ningún lienzo')
+ok(typeof visor.destruye === 'function', 'devuelve algo que se puede destruir')
+visor.destruye()
+ok(!caja.querySelector('img'), 'y al destruirlo no deja restos')
 
-const ok = hijos.length === 1 && hijos[0].src === '/poster.png' &&
-  typeof visor.destruye === 'function'
-console.log(ok ? 'ok   sin WebGL se queda el poster' : 'FALLA el respaldo sin WebGL')
-process.exit(ok ? 0 : 1)
+console.log(fallos === 0 ? '\ntodo correcto' : `\n${fallos} comprobaciones fallidas`)
+process.exit(fallos ? 1 : 0)
