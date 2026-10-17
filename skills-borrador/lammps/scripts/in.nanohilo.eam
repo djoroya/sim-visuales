@@ -1,0 +1,127 @@
+# ----------------------------------------------------------------------------
+# Ensayo de traccion de un nanohilo fcc <100> hasta la rotura
+#
+# Potencial EAM metalico (pasa el fichero con -var pot).
+#
+# Geometria : seccion cuadrada {100} de 8 a0 x 8 a0, longitud 20 a0
+#             (~2,9 x 2,9 x 7,2 nm, 5780 atomos)
+# Contorno  : periodico en x (eje del hilo), superficies libres en y, z
+# Protocolo : minimizacion -> NVT 300 K, 20 ps -> traccion a velocidad de
+#             deformacion constante 5e9 1/s hasta eps = 0,5
+#
+# Salidas:
+#   ${sal}/curva.txt            deformacion ingenieril vs tension ingenieril
+#   ${sal}/frames/hilo.*.lammpstrj   posiciones + CNA por atomo
+#
+# Ejecutar (un solo lmp a la vez, ~1500 atomos por hilo):
+#   lmp -sf omp -pk omp 4 -in in.nanohilo.eam -var sal datos -log datos/log.sim
+# ----------------------------------------------------------------------------
+
+variable  pot    index  /usr/share/lammps/potentials/CAMBIAME.eam.alloy
+variable  elem   index  Cu
+variable  masa   index  63.546
+variable  a0     index 3.615                 # usa el relajado en la validacion
+variable  nsec   index 8                    # celdas en la seccion
+variable  nlong  index 20                   # celdas a lo largo del eje
+variable  sal    index datos                # carpeta de salida
+variable  rmella index 0.0                 # radio de la mella, A (0 = sin mella)
+variable  Tsim   equal 300.0
+variable  dt     equal 0.002                # ps
+variable  erate  equal 0.005                # 1/ps  = 5e9 1/s
+variable  epsmax index 0.50                 # deformacion final
+variable  nequil index 10000                # 20 ps de equilibrado
+variable  ndump  index 625                  # pasos entre volcados (80 en total)
+variable  nterm  index 100
+
+units           metal
+dimension       3
+boundary        p s s
+atom_style      atomic
+
+lattice         fcc ${a0}
+region          hilo block 0 ${nlong} 0 ${nsec} 0 ${nsec} units lattice
+create_box      1 hilo
+create_atoms    1 box
+
+# mella opcional en una cara: localiza el cuello y evita que la rotura caiga
+# en un sitio cualquiera del hilo periodico
+if "${rmella} > 0.0" then &
+  "region mella sphere $(0.5*(xlo+xhi)) $(ylo) $(0.5*(zlo+zhi)) ${rmella} units box" &
+  "delete_atoms region mella compress yes"
+
+pair_style      eam/alloy
+pair_coeff      * * ${pot} ${elem}
+mass            1 ${masa}
+
+neighbor        2.0 bin
+neigh_modify    delay 0 every 1 check yes
+
+# --- magnitudes derivadas ---------------------------------------------------
+variable  natoms equal count(all)
+variable  lx0    equal lx
+# volumen ocupado por los atomos (Omega = a0^3/4 por atomo); evita la
+# ambiguedad de +-medio plano atomico al definir la seccion de un nanohilo
+variable  volat  equal count(all)*(${a0}^3/4.0)
+variable  Vat    equal ${volat}
+variable  A0     equal ${Vat}/${lx0}
+
+# tension ingenieril sigma_xx = F/A0 con F = sum(s_xx)/lx
+# (compute stress/atom devuelve -P*V = sigma*V)            [bar -> GPa]
+compute   satom  all stress/atom NULL
+compute   sxxsum all reduce sum c_satom[1]
+variable  sigma  equal 1.0e-4*c_sxxsum/(lx*${A0})
+variable  strain equal (lx-${lx0})/${lx0}
+variable  tempK  equal temp
+variable  epot   equal pe
+
+# estructura local: 1=FCC 2=HCP 3=BCC 4=ICO 5=desconocido (superficie/amorfo)
+compute   cna    all cna/atom $(0.8536*v_a0)
+
+thermo          ${nterm}
+thermo_style    custom step temp pe v_strain v_sigma lx ly lz
+thermo_modify   lost warn
+
+print "atomos ${natoms}"
+print "A0 ${A0}"
+print "volumen atomico total ${Vat}"
+
+# --- 1) minimizacion --------------------------------------------------------
+min_style       cg
+minimize        1.0e-10 1.0e-12 20000 200000
+
+# --- 2) equilibrado a 300 K (NVT; las caras laterales quedan libres) --------
+reset_timestep  0
+timestep        ${dt}
+velocity        all create ${Tsim} 581923 mom yes rot no dist gaussian
+fix             eq all nvt temp ${Tsim} ${Tsim} 0.2
+run             ${nequil}
+unfix           eq
+
+# --- 3) traccion ------------------------------------------------------------
+reset_timestep  0
+variable  lxnow  equal lx
+variable  lxref  equal ${lxnow}
+variable  A0ref  equal ${Vat}/${lxref}
+variable  strain delete
+variable  strain equal (lx-${lxref})/${lxref}
+variable  sigma  delete
+variable  sigma  equal 1.0e-4*c_sxxsum/(lx*${A0ref})
+variable  nrun   equal round(${epsmax}/(${erate}*${dt}))
+
+print "longitud de referencia ${lxref}"
+print "seccion efectiva ${A0ref}"
+print "pasos de traccion ${nrun}"
+
+fix             term all nvt temp ${Tsim} ${Tsim} 0.2
+fix             tira all deform 1 x erate ${erate} remap x
+
+fix             curva all print ${nterm} "${strain} ${sigma} ${tempK} ${epot}" &
+                file ${sal}/curva.txt screen no &
+                title "# deformacion tension_GPa temperatura_K energia_eV"
+
+dump            d1 all custom ${ndump} ${sal}/frames/hilo.*.lammpstrj id x y z c_cna
+dump_modify     d1 sort id format line "%d %.3f %.3f %.3f %.0f" pad 7
+
+run             ${nrun}
+
+print "FIN traccion"
