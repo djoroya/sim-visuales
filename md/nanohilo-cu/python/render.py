@@ -134,6 +134,16 @@ def dibuja(args):
     return idx, int((cna == 2).sum()), lx
 
 
+def aligera(ruta: Path, colores: int = 96) -> None:
+    """Reduce el PNG a una paleta: es una imagen de pocos tonos y asi pesa
+    un tercio, que importa porque el poster se descarga siempre."""
+    from PIL import Image
+
+    img = Image.open(ruta).convert("RGBA")
+    img.quantize(colors=colores, method=Image.FASTOCTREE).save(
+        ruta, optimize=True)
+
+
 def main() -> int:
     raiz = Path(__file__).resolve().parents[1]
     ap = argparse.ArgumentParser()
@@ -188,7 +198,9 @@ def main() -> int:
         salida_poster.parent.mkdir(parents=True, exist_ok=True)
         dibuja((0, str(rutas[0]), str(salida_poster), desplaza,
                 vista_x, vista_y, centro_yz))
-        print(f"poster en {salida_poster}")
+        aligera(salida_poster)
+        print(f"poster en {salida_poster} "
+              f"({salida_poster.stat().st_size / 1024:.0f} KiB)")
         return 0
 
     n = len(rutas)

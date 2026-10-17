@@ -65,10 +65,13 @@ salidas() {
   paso "poster de respaldo"
   "$PY" python/render.py --poster salida/nanohilo-cu-poster.png
 
-  paso "comprobacion del formato con el parser del visor"
+  paso "vista previa de la animacion (tmp/vista-previa.png)"
+  "$PY" python/vista_previa.py --filas 8
+
+  paso "comprobaciones del visor"
   ( cd ../../visor && node test/formato.mjs \
       ../md/nanohilo-cu/salida/nanohilo-cu.nw \
-      ../md/nanohilo-cu/datos/control.json )
+      ../md/nanohilo-cu/datos/control.json && node test/fallback.mjs )
 
   printf '\n'
   ls -lh salida | sed 's/^/  /'
