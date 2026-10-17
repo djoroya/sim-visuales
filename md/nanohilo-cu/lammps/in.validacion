@@ -1,0 +1,137 @@
+# ----------------------------------------------------------------------------
+# Validacion del potencial EAM de Cu (Mishin et al., PRB 63, 224106, 2001)
+#
+# Calcula a 0 K:
+#   - parametro de red de equilibrio a0
+#   - energia cohesiva E_coh
+#   - constantes elasticas C11, C12, C44
+#   - modulo de Young en [100] (de los Cij y medido por traccion uniaxial)
+#
+# Escribe los resultados en  datos/validacion.txt  (clave valor por linea).
+# Ejecutar desde  md/nanohilo-cu/ :
+#   lmp -in lammps/in.validacion -log datos/log.validacion
+# ----------------------------------------------------------------------------
+
+variable  pot    string /usr/share/lammps/potentials/Cu_mishin1.eam.alloy
+variable  salida string datos/validacion.txt
+
+units           metal
+dimension       3
+boundary        p p p
+atom_style      atomic
+
+# --- celda cubica convencional FCC (4 atomos) -------------------------------
+variable  aguess equal 3.615
+lattice         fcc ${aguess}
+region          caja block 0 1 0 1 0 1 units lattice
+create_box      1 caja
+create_atoms    1 box
+
+pair_style      eam/alloy
+pair_coeff      * * ${pot} Cu
+mass            1 63.546
+
+neighbor        1.0 bin
+neigh_modify    delay 0 every 1 check yes
+
+thermo          50
+thermo_style    custom step pe lx ly lz pxx pyy pzz pxy press
+
+# --- 1) relajacion de la celda: a0 y energia cohesiva -----------------------
+fix             relax all box/relax iso 0.0 vmax 0.001
+min_style       cg
+minimize        0.0 1.0e-12 100000 1000000
+unfix           relax
+minimize        0.0 1.0e-12 100000 1000000
+
+variable  a0v   equal lx
+variable  ecohv equal -pe/count(all)
+variable  a0    equal ${a0v}
+variable  ecoh  equal ${ecohv}
+variable  lx0   equal ${a0v}
+
+print "a0 ${a0}"     file   ${salida}
+print "ecoh ${ecoh}" append ${salida}
+
+# --- 2) constantes elasticas por diferencias centradas ----------------------
+# bar -> GPa : 1 bar = 1e-4 GPa.   C_ij = -dP_i/d(eps_j)
+variable  eps   equal 1.0e-3
+
+# ---- deformacion normal en x : da C11 y C12 --------------------------------
+change_box      all x final 0.0 $((1.0+v_eps)*v_lx0) remap units box
+minimize        0.0 1.0e-12 100000 1000000
+variable  pxxp  equal pxx
+variable  pyyp  equal pyy
+variable  pxxP  equal ${pxxp}
+variable  pyyP  equal ${pyyp}
+change_box      all x final 0.0 ${lx0} remap units box
+
+change_box      all x final 0.0 $((1.0-v_eps)*v_lx0) remap units box
+minimize        0.0 1.0e-12 100000 1000000
+variable  pxxm  equal pxx
+variable  pyym  equal pyy
+variable  pxxM  equal ${pxxm}
+variable  pyyM  equal ${pyym}
+change_box      all x final 0.0 ${lx0} remap units box
+
+variable  C11   equal -1.0e-4*(${pxxP}-${pxxM})/(2.0*${eps})
+variable  C12   equal -1.0e-4*(${pyyP}-${pyyM})/(2.0*${eps})
+
+print "C11 ${C11}" append ${salida}
+print "C12 ${C12}" append ${salida}
+
+# ---- cizalla xy : da C44 ---------------------------------------------------
+change_box      all triclinic
+variable  dxy   equal ${eps}*${lx0}
+
+change_box      all xy final ${dxy} remap units box
+minimize        0.0 1.0e-12 100000 1000000
+variable  pxyp  equal pxy
+variable  pxyP  equal ${pxyp}
+change_box      all xy final 0.0 remap units box
+
+change_box      all xy final -${dxy} remap units box
+minimize        0.0 1.0e-12 100000 1000000
+variable  pxym  equal pxy
+variable  pxyM  equal ${pxym}
+change_box      all xy final 0.0 remap units box
+
+variable  C44   equal -1.0e-4*(${pxyP}-${pxyM})/(2.0*${eps})
+print "C44 ${C44}" append ${salida}
+
+# --- 3) modulo de Young en [100] --------------------------------------------
+# (a) valor analitico a partir de C11 y C12 para traccion segun <100>
+variable  E100c equal (${C11}+2.0*${C12})*(${C11}-${C12})/(${C11}+${C12})
+print "E100_de_Cij ${E100c}" append ${salida}
+
+# (b) medida directa: traccion uniaxial +-0.2 % dejando relajar y,z a tension
+#     nula (es el mismo ensayo que se hace luego sobre el nanohilo)
+variable  epsu  equal 2.0e-3
+change_box      all ortho
+
+change_box      all x final 0.0 $((1.0+v_epsu)*v_lx0) remap units box
+fix             relaxyz all box/relax y 0.0 z 0.0 vmax 0.0001
+minimize        0.0 1.0e-16 1000000 10000000
+unfix           relaxyz
+variable  sp    equal -1.0e-4*pxx
+variable  sxxP  equal ${sp}
+variable  ryP   equal pyy
+variable  rzP   equal pzz
+print "   residuo +: pyy ${ryP} bar  pzz ${rzP} bar"
+change_box      all x final 0.0 ${lx0} remap units box
+change_box      all y final 0.0 ${lx0} z final 0.0 ${lx0} remap units box
+
+change_box      all x final 0.0 $((1.0-v_epsu)*v_lx0) remap units box
+fix             relaxyz all box/relax y 0.0 z 0.0 vmax 0.0001
+minimize        0.0 1.0e-16 1000000 10000000
+unfix           relaxyz
+variable  sm    equal -1.0e-4*pxx
+variable  sxxM  equal ${sm}
+variable  ryM   equal pyy
+variable  rzM   equal pzz
+print "   residuo -: pyy ${ryM} bar  pzz ${rzM} bar"
+
+variable  E100m equal (${sxxP}-${sxxM})/(2.0*${epsu})
+print "E100_directo ${E100m}" append ${salida}
+
+print "FIN validacion"

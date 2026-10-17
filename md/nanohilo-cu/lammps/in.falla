@@ -1,0 +1,70 @@
+# ----------------------------------------------------------------------------
+# Energia de falla de apilamiento intrinseca (ISF) del Cu
+# Potencial EAM de Mishin et al., Phys. Rev. B 63, 224106 (2001).
+#
+# Celda orientada  x=[11-2]  y=[-110]  z=[111], superficies libres en z.
+# Se desliza la mitad superior el vector parcial de Shockley a0/6[11-2] y se
+# relaja solo en z (los atomos no pueden volver a deslizar en el plano).
+#
+#   gamma_isf = (E_falla - E_perfecta) / A        1 eV/A^2 = 16021.766 mJ/m^2
+#
+# El resultado se anade a datos/validacion.txt
+# ----------------------------------------------------------------------------
+
+variable  pot    string /usr/share/lammps/potentials/Cu_mishin1.eam.alloy
+variable  salida string datos/validacion.txt
+variable  a0     equal 3.61492506588808
+
+units           metal
+dimension       3
+boundary        p p s
+atom_style      atomic
+
+# periodos de la red en los ejes elegidos
+variable  lxp    equal ${a0}*sqrt(6.0)/2.0     # [11-2]
+variable  lyp    equal ${a0}*sqrt(2.0)/2.0     # [-110]
+variable  lzp    equal ${a0}*sqrt(3.0)         # [111], 3 capas ABC
+variable  nz     equal 10                      # 30 capas (111)
+
+lattice         fcc ${a0} orient x 1 1 -2 orient y -1 1 0 orient z 1 1 1
+region          caja block 0 ${lxp} 0 ${lyp} 0 $(v_nz*v_lzp) units box
+create_box      1 caja
+create_atoms    1 box
+
+pair_style      eam/alloy
+pair_coeff      * * ${pot} Cu
+mass            1 63.546
+
+neighbor        2.0 bin
+neigh_modify    delay 0 every 1 check yes
+
+variable  area   equal lx*ly
+
+# la relajacion solo puede mover los atomos en z
+fix             solo_z all setforce 0.0 0.0 NULL
+
+thermo          100
+thermo_style    custom step pe lx ly lz
+min_style       cg
+
+# --- 1) cristal perfecto ----------------------------------------------------
+minimize        0.0 1.0e-12 10000 100000
+variable  eperf0 equal pe
+variable  eperf  equal ${eperf0}
+print "atomos_falla $(count(all))"
+
+# --- 2) falla intrinseca: deslizo la mitad superior a0/6[11-2] --------------
+variable  zcorte equal $(0.5*v_nz*v_lzp-v_lzp/6.0)   # entre dos capas (111)
+variable  burg   equal ${lxp}/3.0            # |a0/6[11-2]| = a0/sqrt(6)
+
+region          arriba block INF INF INF INF ${zcorte} INF units box
+group           arriba region arriba
+displace_atoms  arriba move ${burg} 0.0 0.0 units box
+
+minimize        0.0 1.0e-12 10000 100000
+variable  efalla0 equal pe
+variable  efalla  equal ${efalla0}
+
+variable  gamma  equal 16021.766*(${efalla}-${eperf})/${area}
+print "gamma_isf ${gamma}" append ${salida}
+print "FIN falla"

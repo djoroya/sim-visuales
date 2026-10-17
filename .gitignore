@@ -2,4 +2,7 @@
 __pycache__/
 *.dump
 log.lammps
-frames/
+
+# datos pesados de las simulaciones: se regeneran con run.sh
+md/*/datos/
+md/*/tmp/
