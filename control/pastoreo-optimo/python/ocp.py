@@ -18,11 +18,13 @@ con L la distancia inicial del rebano al objetivo. Cada termino vale ~1 para
 "no he hecho nada" y ~0 para "perfecto", de modo que lam = 0,2 significa
 literalmente que agrupar pesa una quinta parte de llegar.
 
-El termino de seguimiento no esta en el enunciado del TFM (que solo mira el
-instante final) pero es lo que hace trabajable el disparo simple: sin el, el
-gradiente del coste terminal respecto a los primeros controles pasa por 160
-intervalos de dinamica y queda aplastado, y el optimizador se entretiene
-afinando el final de la trayectoria. Se puede apagar con gam = 0.
+El termino de seguimiento no esta en el enunciado del TFM, que solo mira el
+instante final. La razon de anadirlo es que el gradiente del coste terminal
+respecto a los primeros controles pasa por 160 intervalos de dinamica
+disipativa y llega aplastado. Medido en el caso de 200 ovejas: con gam = 0 el
+optimizador tambien lleva el rebano al objetivo, pero gastando tres veces mas
+esfuerzo (120 377 frente a 39 982) y quedandose algo mas lejos. No es
+imprescindible; sale mas barato. Se apaga con gam = 0.
 """
 
 from __future__ import annotations

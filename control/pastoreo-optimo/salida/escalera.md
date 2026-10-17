@@ -108,6 +108,7 @@ Todas con 200 ovejas, 3 perros, mismo horizonte y misma cota; lo único que camb
 | *heurística* | la política del TFM | 86,9 | 524 | 428 300 | 2 s |
 | el del enunciado | λ = 0,2, β = 0,2, γ = 0,5, arranque en caliente | 2,0 | 503 | 39 982 | 105 min |
 | arranque frío | el mismo coste, pero partiendo de control nulo | 2,2 | 503 | 37 420 | 105 min |
+| sin seguimiento | γ = 0: el coste solo mira el instante final | 3,1 | 514 | 120 377 | 126 min |
 | más peso a agrupar | λ = 0,5 | 1,7 | 333 | 57 601 | 117 min |
 | compacto todo el camino | λ_t = 0,3: la dispersión cuenta en cada instante | 1,4 | 369 | 68 956 | 116 min |
 

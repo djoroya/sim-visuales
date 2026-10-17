@@ -1,0 +1,72 @@
+{
+ "etiqueta": "sin-seguimiento",
+ "arranque": "caliente",
+ "coste_arranque": {
+  "agrupar": 0.5147934763614034,
+  "esfuerzo": 0.5659237444808948,
+  "llegar": 0.1841554163237665,
+  "seguir": 0.47668983625194755,
+  "J": 0.4002988604922261
+ },
+ "construir_s": 0.554216094998992,
+ "heuristica_s": 2.283040643989807,
+ "optimo": {
+  "segundos": 7557.824310838987,
+  "iteraciones": 200,
+  "estado": "Maximum_Iterations_Exceeded",
+  "exito": false,
+  "escala": 9.090285824488848,
+  "kkt_dual": 1.0906274919227543,
+  "coste_ipopt": 0.13338540075869282
+ },
+ "heuristica": {
+  "coste": {
+   "agrupar": 0.5147934763614034,
+   "esfuerzo": 0.5659237444808948,
+   "llegar": 0.1841554163237665,
+   "seguir": 0.47668983625194755,
+   "J": 0.4002988604922261
+  },
+  "dist_final": 86.87298732891887,
+  "dist_min": 86.87298732891887,
+  "t_dist20": null,
+  "disp_inicial": 1016.9691250964514,
+  "disp_final": 523.5354115229633,
+  "esfuerzo_medio": 8.281819945665978,
+  "esfuerzo_int": 428299.86255009903
+ },
+ "optimo_res": {
+  "coste": {
+   "agrupar": 0.5052226555808329,
+   "esfuerzo": 0.16050279667646764,
+   "llegar": 0.00024031030723271774,
+   "seguir": 0.24048761101921975,
+   "J": 0.13338540075869282
+  },
+  "dist_final": 3.138080003018171,
+  "dist_min": 3.138080003018171,
+  "t_dist20": 367.5,
+  "disp_inicial": 1016.9691250964514,
+  "disp_final": 513.7958420249456,
+  "esfuerzo_medio": 5.395969683931088,
+  "esfuerzo_int": 120377.09750735055
+ },
+ "total_s": 7590.871604259984,
+ "malla": {
+  "T": 400.0,
+  "n": 160,
+  "m": 10,
+  "h": 0.25,
+  "dt": 2.5
+ },
+ "pesos": {
+  "lam": 0.2,
+  "bet": 0.2,
+  "gam": 0.0
+ },
+ "a_max": 25.0,
+ "r_pos": 71.19141707460402,
+ "variables": 960,
+ "n_o": 200,
+ "n_p": 3
+}

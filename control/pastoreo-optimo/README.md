@@ -77,13 +77,15 @@ literalmente que agrupar pesa una quinta parte de llegar. Los dos primeros
 términos son los del TFM (ec. 6.3); el tercero también. Pesos usados:
 `λ = 0,2`, `β = 0,2`, `γ = 0,5`.
 
-**El término de seguimiento no estaba en el enunciado** y conviene justificarlo:
-sin él, el coste solo mira el instante final y su gradiente respecto a los
-primeros controles atraviesa 160 intervalos de dinámica disipativa, de modo que
-llega aplastado; el optimizador se dedica a afinar el final de la trayectoria y
-deja el principio como estaba. Con `γ = 0,5` el problema sigue siendo el mismo
-—llevar el rebaño al objetivo— pero el gradiente reparte información por todo
-el horizonte. Se puede apagar con `--gam 0`.
+**El término de seguimiento no estaba en el enunciado** y conviene justificarlo
+con números, no con intuición. La razón para añadirlo es que el gradiente del
+coste terminal respecto a los primeros controles atraviesa 160 intervalos de
+dinámica disipativa y llega aplastado. Pero el experimento dice que no es
+imprescindible: con `γ = 0` el optimizador también lleva las 200 ovejas al
+objetivo, solo que **gastando el triple** (esfuerzo 120 377 frente a 39 982) y
+quedándose un poco más lejos (3,1 frente a 2,0). Lo que compra `γ` es que los
+perros empujen desde el principio en vez de dejarlo todo para el final. Se
+apaga con `--gam 0`.
 
 ## Discretización y resolución
 
@@ -263,6 +265,7 @@ Las mismas 200 ovejas con variantes del coste (tabla completa, con tiempos, en
 | heurística | 86,9 | 524 | 428 300 |
 | `λ = 0,2` (el del enunciado) | 2,0 | 503 | 39 982 |
 | `λ = 0,2`, arranque frío | 2,2 | 503 | 37 420 |
+| `γ = 0` (sin seguimiento) | 3,1 | 514 | 120 377 |
 | `λ = 0,5` | 1,7 | 333 | 57 601 |
 | `λ_t = 0,3` (compacto todo el camino) | 1,4 | 369 | 68 956 |
 
