@@ -135,7 +135,9 @@ punta es tan aguda que, si se usa el máximo, todo lo demás queda plano.
 
 | Fichero | Tamaño | Para qué |
 |---|---:|---|
-| `salida/grieta-portada-intermedia.webm` | **249 KiB** | **el que va en la portada**: 1920×480, bucle de 7,2 s |
+| `salida/grieta-portada-fija.webp` | **54 KiB** | **lo que va en la portada**: 2400×800, imagen fija con zoom por CSS |
+| `salida/grieta-portada-fija-1200.webp` | 23 KiB | la misma para pantallas pequeñas |
+| `salida/grieta-portada-intermedia.webm` | 249 KiB | versión animada, 1920×480, bucle de 7,2 s |
 | `salida/grieta-portada-intermedia.mp4` | 425 KiB | lo mismo, para quien no soporte WebM |
 | `salida/grieta-portada-intermedia-poster.webp` | 10 KiB | primer fotograma, carga instantánea |
 | `salida/grieta-portada.webm` | 170 KiB | primera versión, 1280×320: a todo lo ancho queda demasiado difuminada |
@@ -146,7 +148,15 @@ punta es tan aguda que, si se usa el máximo, todo lo demás queda plano.
 | `salida/grieta-oscuro-*.png` | ~190 KiB | fotogramas clave, fondo oscuro |
 | `salida/grieta-claro-propagacion.png` | 155 KiB | el mismo, fondo claro |
 
-**Las dos versiones del fondo.** La primera (`grieta-portada`) usa una rejilla
+**El encuadre de la portada.** La imagen fija no está centrada en la grieta
+como las demás: la grieta entra por la izquierda a tres cuartos de la altura y
+la punta queda al 70 % del ancho, de modo que la mitad izquierda y la franja
+central —donde va el titular— quedan en azul oscuro tranquilo y el único foco
+cálido cae a la derecha. Se controla con `--frac-punta` y `--frac-grieta` de
+`render.py`. Como la web le aplica un zoom lento, en el 5 % de los bordes no
+hay nada que importe perder; se comprobó recortando esa franja.
+
+**Las dos versiones del fondo animado.** La primera (`grieta-portada`) usa una rejilla
 de 1,1 σ y 1280 px: cabe en 170 KiB, pero estirada a todo el ancho de una
 pantalla se queda en un degradado bonito en el que ya no se reconoce una
 grieta. La que va a la portada (`-intermedia`) sube a 1920 px y afina la

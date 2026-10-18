@@ -112,6 +112,12 @@ def main() -> int:
                     help="tamano de la vista en unidades LJ")
     ap.add_argument("--adelanto", type=float, default=25.0,
                     help="cuanto se adelanta el encuadre a la punta")
+    ap.add_argument("--frac-punta", type=float, default=None,
+                    help="donde cae la punta a lo ancho, de 0 a 1 "
+                         "(si se da, manda sobre --adelanto)")
+    ap.add_argument("--frac-grieta", type=float, default=None,
+                    help="donde cae la grieta a lo alto, de 0 a 1 medido "
+                         "desde ARRIBA, como en una imagen")
     ap.add_argument("--claro", action="store_true")
     ap.add_argument("--radio", type=float, default=0.62)
     ap.add_argument("--percentil", type=float, default=99.5)
@@ -166,9 +172,17 @@ def main() -> int:
         _, datos = cuadros[i]
         xy = datos[:, 1:3]
         sig = datos[:, 3]
-        cx = (xp[i] + args.adelanto) if xp is not None else xy[:, 0].mean()
+        if args.frac_punta is not None and xp is not None:
+            # la punta cae en esa fraccion del ancho: el centro del encuadre
+            # se corre hacia la izquierda lo que haga falta
+            cx = xp[i] - (args.frac_punta - 0.5) * w
+        else:
+            cx = (xp[i] + args.adelanto) if xp is not None else xy[:, 0].mean()
         cx = min(max(cx, xy[:, 0].min() + w / 2), xy[:, 0].max() - w / 2)
-        vista = (cx - w / 2, cx + w / 2, ymed - h / 2, ymed + h / 2)
+        # frac_grieta se mide desde arriba, como en una imagen; el mundo tiene
+        # la y hacia arriba, de ahi el signo
+        cy = ymed + (args.frac_grieta - 0.5) * h if args.frac_grieta else ymed
+        vista = (cx - w / 2, cx + w / 2, cy - h / 2, cy + h / 2)
         nombre = destino / (f"f{k:04d}.png" if not args.frames else f"fija{i:04d}.png")
         if args.dibujo == "campo":
             tareas.append((str(nombre), xy, sig, vista, args.ancho, args.alto,

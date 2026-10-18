@@ -78,6 +78,19 @@ salidas() {
         --nombre grieta-portada-intermedia --fps 18 --crf-webm 42 --crf-mp4 35
   "$PY" python/poster_intermedia.py
 
+  # imagen fija de la portada: la web le aplica el zoom por CSS. El encuadre
+  # se fija con --frac-punta / --frac-grieta para dejar libre la mitad
+  # izquierda y la franja central, que es donde va el titular.
+  paso "imagen fija de la portada"
+  for medida in "2400 800 tmp/pf" "1200 400 tmp/pf1200"; do
+    set -- $medida
+    "$PY" python/render.py --frames 150 --salida "$3" --ancho "$1" --alto "$2" \
+          --ventana 190 63.3 --frac-punta 0.70 --frac-grieta 0.72 \
+          --smax 3.0 --suavizado 0.95 --celda 0.42 --sigma-dens 1.05 \
+          --dibujo campo
+  done
+  "$PY" python/portada_fija.py
+
   paso "imagenes fijas, poster y OG"
   "$PY" python/render.py --frames 95 150 205 --salida tmp/fijas \
         --ancho 1600 --alto 500 --ventana 150 47 --radio 0.8 --smax "$SMAX" \
