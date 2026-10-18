@@ -21,3 +21,10 @@ visor/dist/
 .mcp.json
 .idea
 .vscode
+
+# temporales de compilación de CasADi y logs
+jit_tmp*.c
+tmp_casadi_compiler_shell*
+*.so
+*.o
+visor/tmp/
