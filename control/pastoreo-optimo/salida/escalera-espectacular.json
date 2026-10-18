@@ -1,0 +1,79 @@
+{
+ "etiqueta": "espectacular",
+ "arranque": "caliente",
+ "coste_arranque": {
+  "agrupado": 2.28354829298316,
+  "agrupar": 0.9827574308184441,
+  "esfuerzo": 0.36598049990683595,
+  "llegar": 1.07277659531967,
+  "seguir": 1.0773149450260229,
+  "J": 2.7136905733043575
+ },
+ "construir_s": 0.5635299260029569,
+ "heuristica_s": 3.2052657199965324,
+ "optimo": {
+  "segundos": 12610.161291911994,
+  "iteraciones": 300,
+  "estado": "Maximum_Iterations_Exceeded",
+  "exito": false,
+  "escala": 0.9653859046904636,
+  "kkt_dual": 11.079002097006647,
+  "coste_ipopt": 0.8004075593054156
+ },
+ "disp_ref": 550.0,
+ "heuristica": {
+  "coste": {
+   "agrupado": 2.28354829298316,
+   "agrupar": 0.9827574308184441,
+   "esfuerzo": 0.36598049990683595,
+   "llegar": 1.07277659531967,
+   "seguir": 1.0773149450260229,
+   "J": 2.7136905733043575
+  },
+  "dist_final": 264.4809355704204,
+  "dist_min": 254.7805103266401,
+  "t_dist20": null,
+  "disp_inicial": 13712.918882544775,
+  "disp_final": 540.5211538353262,
+  "esfuerzo_medio": 5.006488153782868,
+  "esfuerzo_int": 414691.9572406473
+ },
+ "optimo_res": {
+  "coste": {
+   "agrupado": 2.4239993121532533,
+   "agrupar": 0.5129115732832422,
+   "esfuerzo": 0.07903833182938699,
+   "llegar": 0.0024017161901655477,
+   "seguir": 0.24000603572101797,
+   "J": 0.8004075593054156
+  },
+  "dist_final": 12.51633244157248,
+  "dist_min": 5.042080774428062,
+  "t_dist20": 580.0,
+  "disp_inicial": 13712.918882544775,
+  "disp_final": 282.10136530578325,
+  "esfuerzo_medio": 2.4974303928251707,
+  "esfuerzo_int": 88918.12330806043
+ },
+ "total_s": 12657.595678776997,
+ "malla": {
+  "T": 600.0,
+  "n": 240,
+  "m": 10,
+  "h": 0.25,
+  "dt": 2.5
+ },
+ "pesos": {
+  "lam": 0.3,
+  "bet": 0.2,
+  "gam": 0.8,
+  "lam_t": 0.18
+ },
+ "a_max": 25.0,
+ "r_pos": 164.6361494118873,
+ "escenario": "irregular",
+ "k_oo": 0.2,
+ "variables": 1440,
+ "n_o": 200,
+ "n_p": 3
+}

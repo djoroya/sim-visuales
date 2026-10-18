@@ -200,6 +200,44 @@ def seccion_variantes() -> list[str]:
     return cab + filas + [""]
 
 
+def seccion_espectacular() -> list[str]:
+    """El escenario irregular: rebano en banda, cohesion debil, perros dentro."""
+    casos = [("espectacular", "k_oo = 0,20, λ_t = 0,18"),
+             ("espectacular-b", "k_oo = 0,25, λ_t = 0,25")]
+    hay = [(c, t, lee(c)) for c, t in casos if lee(c) is not None]
+    if not hay:
+        return []
+    d0 = hay[0][2]
+    out = ["## 6. El rebaño que no es un disco", "",
+           f"{d0['n_o']} ovejas repartidas en una banda curva con dos grumos "
+           f"(dispersión inicial ≈ 13 700, {num(d0['heuristica']['dist_inicial'] if 'dist_inicial' in d0['heuristica'] else 255, 0)} "
+           "de distancia al objetivo), los tres perros repartidos —uno dentro "
+           "del grumo grande— y la cohesión entre ovejas escalada por `k_oo`. "
+           f"Horizonte {num(d0['malla']['T'], 0)} en {d0['malla']['n']} "
+           f"intervalos ({d0['variables']} incógnitas). La dispersión del coste "
+           f"se mide contra el rebaño en reposo (`disp_ref` = "
+           f"{num(d0.get('disp_ref', 550), 0)}), no contra la inicial.", "",
+           "| | distancia final | dispersión final | esfuerzo | iteraciones | tiempo |",
+           "|---|---:|---:|---:|---:|---:|",
+           f"| *heurística* | {num(d0['heuristica']['dist_final'], 1)} | "
+           f"{num(d0['heuristica']['disp_final'], 0)} | "
+           f"{num(d0['heuristica']['esfuerzo_int'], 0)} | — | "
+           f"{num(d0['heuristica_s'], 0)} s |"]
+    for clave, titulo, d in hay:
+        o, i = d["optimo_res"], d["optimo"]
+        out.append(f"| {titulo} | {num(o['dist_final'], 1)} | "
+                   f"{num(o['disp_final'], 0)} | {num(o['esfuerzo_int'], 0)} | "
+                   f"{i['iteraciones']} | {num(i['segundos'] / 60, 0)} min |")
+    out += ["", "La heurística no mueve este rebaño: los perros orbitan y la "
+            "distancia al objetivo se queda donde estaba. El óptimo reúne los "
+            "dos grumos, los conduce y los deja dentro del objetivo gastando "
+            "una cuarta parte del esfuerzo. Entre las dos versiones, la de "
+            "cohesión más débil conserva la forma irregular más tiempo (en "
+            "t = 100 la dispersión todavía es 838 frente a 430) y gasta menos, "
+            "a cambio de acabar un poco más lejos.", ""]
+    return out
+
+
 def main() -> int:
     partes = ["# La escalera de pruebas", "",
               "Generado por `python/informe.py` a partir de los JSON de "
@@ -216,6 +254,7 @@ def main() -> int:
             continue
         partes += fn(d)
     partes += seccion_variantes()
+    partes += seccion_espectacular()
     destino = SALIDA / "escalera.md"
     destino.write_text("\n".join(partes) + "\n")
     print(f"-> {destino.relative_to(RAIZ)}")

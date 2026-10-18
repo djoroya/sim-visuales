@@ -274,6 +274,57 @@ diagonal y llegar pronto—; lo que compran los pesos altos es un rebaño más
 apretado, y lo pagan en esfuerzo. Cada una de estas filas son dos horas de
 IPOPT.
 
+## Segunda parte: un rebaño que no es un disco
+
+Todo lo anterior usa el escenario fácil: rebaño compacto, simétrico, con los
+perros ya colocados detrás. El interesante es el otro.
+
+![el rebaño irregular, conducido](salida/espectacular-tira-optimo.png)
+
+Aquí las 200 ovejas empiezan repartidas en una **banda curva de unas 400
+unidades**, con dos masas densas unidas por un reguero (dispersión inicial
+13 700, veinticinco veces la del rebaño en reposo), y los tres perros arrancan
+donde más estorban: **uno dentro del grumo grande**, otro al otro lado de la
+banda y el tercero entre el rebaño y el objetivo. Además la cohesión entre
+ovejas se escala a una quinta parte (`k_oo = 0,2`), de modo que la repulsión
+del perro es tres veces y media la fuerza que mantiene unido al grupo: el
+rebaño se deja abrir, estirar y moldear.
+
+| horizonte 600, 240 intervalos | heurística | óptimo |
+|---|---:|---:|
+| distancia al objetivo | 264,5 | **12,5** |
+| dispersión final | 541 | **282** |
+| esfuerzo `∫Σ|a|² dt` | 414 692 | **88 918** |
+| coste J | 2,714 | **0,800** |
+
+La heurística **no mueve este rebaño en absoluto**: sus perros orbitan a la
+distancia de consigna y la distancia al objetivo acaba donde empezó. Es
+coherente con lo que ya pasaba con 200 ovejas en disco, solo que aquí es
+total. El óptimo reúne los dos grumos, los conduce los 255 de camino y los
+deja dentro del objetivo con una cuarta parte del esfuerzo.
+
+Dos cosas que hubo que ajustar y que no son evidentes:
+
+**La dispersión del coste necesita otra referencia.** Normalizar por la
+dispersión inicial —lo razonable cuando el rebaño empieza compacto— aquí no
+sirve: la inicial es 13 700 y cualquier cosa parece buena comparada con eso,
+así que el término no muerde y el optimizador entrega el rebaño estirado. Se
+mide contra la dispersión del rebaño **en reposo** (`--disp-ref 550`), de modo
+que «agrupar = 1» significa «tan junto como el rebaño sabe estar».
+
+**Una prueba pequeña no es una prueba pequeña.** La cohesión total que siente
+una oveja escala con el número de ovejas (`g_oo` se suma sobre todo el rebaño,
+sin normalizar). Un ensayo con 80 ovejas y el mismo `k_oo` tiene un rebaño 2,5
+veces más suelto que el de 200, y da una impresión equivocada: la primera
+tanda de pruebas parecía indicar que el rebaño quedaba desparramado. Para que
+el ensayo sea representativo hay que escalar `k_oo` por `200/n_o`.
+
+Se reproduce con `./run.sh espectacular` (unas 3,5 h) y se ve en
+[`web/espectacular.html`](web/). La variante con cohesión 0,25 y `λ_t = 0,25`
+llega aún más cerca (5,4) y más compacta (199) a cambio de un 19 % más de
+esfuerzo y de perder antes la forma irregular; está en
+[`salida/escalera.md`](salida/escalera.md).
+
 ## Lo que no está
 
 - **Cerca o barreras.** El enunciado natural siguiente es añadir una penalización
@@ -313,6 +364,7 @@ sobre `web/`.
 | `python/poster.py` | la figura de respaldo |
 | `python/informe.py` | `salida/escalera.md` a partir de los JSON |
 | `lammps/in.contraste` | el mismo modelo en LAMMPS, para el peldaño 0b |
+| `python/tira.py` | seis instantes de una escena en fila, para mirar la animación sin navegador |
 | `web/` | visor en canvas 2D, sin dependencias, con los dos paneles |
 
 ## Referencias

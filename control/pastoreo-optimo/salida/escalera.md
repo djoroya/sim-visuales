@@ -112,3 +112,15 @@ Todas con 200 ovejas, 3 perros, mismo horizonte y misma cota; lo único que camb
 | más peso a agrupar | λ = 0,5 | 1,7 | 333 | 57 601 | 117 min |
 | compacto todo el camino | λ_t = 0,3: la dispersión cuenta en cada instante | 1,4 | 369 | 68 956 | 116 min |
 
+## 6. El rebaño que no es un disco
+
+200 ovejas repartidas en una banda curva con dos grumos (dispersión inicial ≈ 13 700, 255 de distancia al objetivo), los tres perros repartidos —uno dentro del grumo grande— y la cohesión entre ovejas escalada por `k_oo`. Horizonte 600 en 240 intervalos (1440 incógnitas). La dispersión del coste se mide contra el rebaño en reposo (`disp_ref` = 550), no contra la inicial.
+
+| | distancia final | dispersión final | esfuerzo | iteraciones | tiempo |
+|---|---:|---:|---:|---:|---:|
+| *heurística* | 264,5 | 541 | 414 692 | — | 3 s |
+| k_oo = 0,20, λ_t = 0,18 | 12,5 | 282 | 88 918 | 300 | 210 min |
+| k_oo = 0,25, λ_t = 0,25 | 5,4 | 199 | 105 525 | 300 | 204 min |
+
+La heurística no mueve este rebaño: los perros orbitan y la distancia al objetivo se queda donde estaba. El óptimo reúne los dos grumos, los conduce y los deja dentro del objetivo gastando una cuarta parte del esfuerzo. Entre las dos versiones, la de cohesión más débil conserva la forma irregular más tiempo (en t = 100 la dispersión todavía es 838 frente a 430) y gasta menos, a cambio de acabar un poco más lejos.
+
