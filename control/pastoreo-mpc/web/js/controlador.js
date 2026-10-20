@@ -140,12 +140,33 @@ function centroRadio(centros, peso, miembros) {
   return { cx, cy, r, R: 1.2 * r + 25 };
 }
 
-function puesto(centros, peso, miembros, psi, mapa) {
-  const { cx, cy, r, R } = centroRadio(centros, peso, miembros);
+/**
+ * Puesto de un perro respecto a su grupo: detrás (en contra de su camino hacia el destino)
+ * girado psi. Los flancos (psi != 0) van un poco más lejos: contienen sin empujar.
+ * Si el puesto cae fuera del campo o al otro lado de una pared (rebaño en una esquina o
+ * contra la valla): al otro lado de una pared se gira en pasos de 15° hasta el ángulo
+ * alcanzable más cercano; fuera del campo se pega a la valla.
+ */
+function puesto(centros, peso, miembros, psi, mapa, seg = null) {
+  const { cx, cy, R } = centroRadio(centros, peso, miembros);
   let gx = muestrea(mapa.gx, cx, cy), gy = muestrea(mapa.gy, cx, cy);
   const n = Math.hypot(gx, gy) + 1e-6; gx /= n; gy /= n;
-  const c = Math.cos(psi), s = Math.sin(psi);
-  return { px: cx + R * (c * gx - s * gy), py: cy + R * (s * gx + c * gy), gx, gy };
+  const rad = psi === 0 ? R : R + 25;
+  const en = (a) => { const c = Math.cos(a), s = Math.sin(a); return [cx + rad * (c * gx - s * gy), cy + rad * (s * gx + c * gy)]; };
+  // fuera del campo se pega a la valla (entre el rebaño y ella: así lo despega de la esquina)
+  const pega = ([x, y]) => [Math.max(-282, Math.min(282, x)), Math.max(-202, Math.min(202, y))];
+  const [ox, oy] = en(psi);
+  let [px, py] = pega([ox, oy]);
+  if (seg) {
+    const vale = ([x, y]) => !cortaPared(cx, cy, x, y, seg);
+    if (!vale([px, py])) {
+      for (let k = 1; k <= 8; k++) {
+        const a = [psi + k * 0.2618, psi - k * 0.2618].map((b) => pega(en(b))).find(vale);
+        if (a) { [px, py] = a; break; }
+      }
+    }
+  }
+  return { px, py, gx, gy, arrinconado: Math.hypot(ox - px, oy - py) > 10 };
 }
 
 function* permutaciones(n, k, pref = []) {
@@ -224,13 +245,22 @@ export function asigna(centros, peso, Y, previa, mapa, seg, corral = null, compr
     return p;
   });
   // argsort ascendente estable y al revés, como np.argsort(prio)[::-1]
-  const orden = prio.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((x) => x[1]).reverse();
+  let orden = prio.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map((x) => x[1]).reverse();
+  // Primero el grueso: mientras haya algún grupo grande (4 ovejas o más y al menos el 10 %
+  // del rebaño), los pequeños no reciben perro; si no, un perro se iría a por una oveja
+  // suelta y dejaría al rebaño sin empuje.
+  const tam = grupos.map((g) => g.reduce((a, i) => a + peso[i], 0)), total = tam.reduce((a, b) => a + b, 0);
+  const grande = (gi) => tam[gi] >= Math.max(4, 0.1 * total);
+  if (orden.some(grande)) orden = orden.filter(grande);
+  // Un líder y flancos: un perro por grupo grande, por prioridad, justo detrás; los que
+  // sobran, a los flancos del principal, abiertos (±63°) y algo más lejos: contienen por
+  // los lados sin empujar en otra dirección ni estorbar al que lleva la iniciativa.
   const slots = orden.slice(0, NP).map((gi) => [gi, 0.0]);
-  for (const e of [[orden[0], -0.6], [orden[0], 0.6], [orden[0], -1.0], [orden[0], 1.0]]) {
+  for (const e of [[orden[0], -1.1], [orden[0], 1.1], [orden[0], -1.5], [orden[0], 1.5]]) {
     if (slots.length >= NP) break;
     slots.push(e);
   }
-  const pts = slots.map(([gi, ps]) => puesto(centros, peso, grupos[gi], ps, mapa));
+  const pts = slots.map(([gi, ps]) => puesto(centros, peso, grupos[gi], ps, mapa, seg));
   const coste = (perm) => perm.reduce((s, i, j) => s + Math.hypot(Y[2 * j] - pts[i].px, Y[2 * j + 1] - pts[i].py), 0);
   let mejor = null, cm = Infinity;
   for (const perm of permutaciones(slots.length, NP)) { const c = coste(perm); if (c < cm) { cm = c; mejor = perm; } }
@@ -271,7 +301,7 @@ export function asigna(centros, peso, Y, previa, mapa, seg, corral = null, compr
     const [gi, ps] = slots[i], mi = grupos[gi];
     let W = 0; for (const q of mi) W += peso[q];
     for (const q of mi) G[q + M * j] = peso[q] / W;            // columna j (orden F)
-    psi[j] = ps; gdir[2 * j] = pts[i].gx; gdir[2 * j + 1] = pts[i].gy;
+    { const cr0 = centroRadio(centros, peso, mi); psi[j] = 0; gdir[2 * j] = (pts[i].px - cr0.cx) / cr0.R; gdir[2 * j + 1] = (pts[i].py - cr0.cy) / cr0.R; }
     const { cx, cy, r, R } = centroRadio(centros, peso, mi);
     // el puesto no puede quedar al otro lado de una pared respecto a su grupo (p. ej. con
     // el grupo arrinconado): se acerca al grupo hasta justo antes de la pared
@@ -296,6 +326,11 @@ export function asigna(centros, peso, Y, previa, mapa, seg, corral = null, compr
         zonas.push({ x: o.cx, y: o.cy, R: o.r + 50, peso: 4 });
       });
       wp = puntoDeRuta(rejilla, Y[2 * j], Y[2 * j + 1], dest[0], dest[1], zonas);
+    }
+    // Rebaño arrinconado contra la valla: el líder va directo al hueco entre el rebaño y la
+    // valla, sin rodear ni guardar distancia; las ovejas se apartan de él y se despegan.
+    if (ps === 0 && pts[i].arrinconado && !cortaPared(Y[2 * j], Y[2 * j + 1], dest[0], dest[1], seg)) {
+      wp = null; wd[j] = 10 * W_DET_NORMAL; wt[j] = 0; enRuta.push(j);
     }
     if (!wp && (dest[0] !== pts[i].px || dest[1] !== pts[i].py)) wp = dest;
     if (wp) {
