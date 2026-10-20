@@ -20,7 +20,7 @@ const $ = (id) => document.getElementById(id);
 const CANDIDATOS = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25];
 const M_MIN = 0.01, M_MAX = 1.25, FILAS = 101;
 
-const estado = { elim: new Set([5, 7, 11, 13]), nU: 5, m: 0.8, P: null, q: null, sol: null, ms: 0, mapa: null, barrido: null };
+const estado = { medio: true, elim: new Set([5, 7, 11, 13]), nU: 5, m: 0.8, P: null, q: null, sol: null, ms: 0, mapa: null, barrido: null };
 
 function configura() {
   const H = [...estado.elim].sort((a, b) => a - b);
@@ -116,25 +116,31 @@ const colorNivel = (u) => {
   return `rgb(${r},${g},${b})`;
 };
 
+// Tramo de ángulo que muestran la onda y el mapa: medio periodo (por defecto) o el completo.
+const tramo = () => (estado.medio ? Math.PI : 2 * Math.PI);
+const guias = () => (estado.medio
+  ? [[Math.PI / 4, "π/4"], [Math.PI / 2, "π/2"], [(3 * Math.PI) / 4, "3π/4"]]
+  : [[Math.PI / 2, "π/2"], [Math.PI, "π"], [(3 * Math.PI) / 2, "3π/2"]]);
+
 function texto(s, x, y, { color = C.suave, size = 22, align = "left", bold = false } = {}) {
   ctx.fillStyle = color; ctx.font = `${bold ? "600 " : ""}${size}px system-ui, sans-serif`; ctx.textAlign = align; ctx.fillText(s, x, y);
 }
 
 function panelOnda(x0, y0, w, h) {
   const r = estado.sol, ok = factible(r), m = estado.m;
-  texto("La onda (un periodo)", x0, y0 - 16, { color: C.texto, bold: true });
+  texto(estado.medio ? "La onda (medio periodo)" : "La onda (un periodo)", x0, y0 - 16, { color: C.texto, bold: true });
   texto("— — objetivo: la fundamental", x0 + w, y0 - 16, { color: C.warm, size: 17, align: "right" });
-  const X = (t) => x0 + (t / (2 * Math.PI)) * w, Y = (u) => y0 + h / 2 - (u * h) / 2.5;
+  const T = tramo(), X = (t) => x0 + (t / T) * w, Y = (u) => y0 + h / 2 - (u * h) / 2.5;
   ctx.strokeStyle = C.rejilla; ctx.lineWidth = 1;
   for (const u of estado.P.U) { ctx.beginPath(); ctx.moveTo(x0, Y(u)); ctx.lineTo(x0 + w, Y(u)); ctx.stroke(); }
-  for (const t of [Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) { ctx.beginPath(); ctx.moveTo(X(t), y0); ctx.lineTo(X(t), y0 + h); ctx.stroke(); }
+  for (const [t] of guias()) { ctx.beginPath(); ctx.moveTo(X(t), y0); ctx.lineTo(X(t), y0 + h); ctx.stroke(); }
   ctx.strokeStyle = C.warm; ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.beginPath();
-  for (let i = 0; i <= 400; i++) { const t = (2 * Math.PI * i) / 400; i ? ctx.lineTo(X(t), Y(m * Math.sin(t))) : ctx.moveTo(X(t), Y(m * Math.sin(t))); }
+  for (let i = 0; i <= 400; i++) { const t = (T * i) / 400; i ? ctx.lineTo(X(t), Y(m * Math.sin(t))) : ctx.moveTo(X(t), Y(m * Math.sin(t))); }
   ctx.stroke(); ctx.setLineDash([]);
   if (!ok) { texto("sin solución para esta amplitud", x0 + w / 2, y0 + h / 2 - 20, { color: C.rojo, size: 20, align: "center" }); return; }
   const bordes = [0, ...r.ts, Math.PI];
   ctx.strokeStyle = C.texto; ctx.lineWidth = 3; ctx.beginPath();
-  for (const s of [1, -1]) {
+  for (const s of estado.medio ? [1] : [1, -1]) {
     const off = s === 1 ? 0 : Math.PI;
     r.niveles.forEach((u, k) => { const xa = X(off + bordes[k]), xb = X(off + bordes[k + 1]), y = Y(s * u); if (k === 0 && s === 1) ctx.moveTo(xa, y); else ctx.lineTo(xa, y); ctx.lineTo(xb, y); });
   }
@@ -169,7 +175,7 @@ function panelDatos(x, y) {
 function panelMapa(x0, y0, w, h) {
   texto(G.ancho ? "Todas las soluciones: la onda para cada amplitud" : "Todas las soluciones", x0, y0 - 16, { color: C.texto, bold: true });
   const mp = estado.mapa; if (!mp) return;
-  const X = (t) => x0 + (t / (2 * Math.PI)) * w, Y = (m) => y0 + h - (m / M_MAX) * h;
+  const X = (t) => x0 + (t / tramo()) * w, Y = (m) => y0 + h - (m / M_MAX) * h;
   ctx.fillStyle = "#1c2a40"; ctx.fillRect(x0, y0, w, h);                 // sin solución: el fondo
   // Cada tramo de filas seguidas con la misma estructura se dibuja como un polígono por nivel
   // (borde izquierdo subiendo, derecho bajando): sin costuras entre filas. El tramo se alarga
@@ -181,7 +187,7 @@ function panelMapa(x0, y0, w, h) {
     if (F[i0].ok) {
       const filas = F.slice(i0, i1 + 1), techo = i1 + 1 < F.length ? F[i1 + 1].m : F[i1].m;
       const bordes = filas.map((f) => [0, ...f.ts, Math.PI]);
-      for (const [sg, off] of [[1, 0], [-1, Math.PI]]) {
+      for (const [sg, off] of estado.medio ? [[1, 0]] : [[1, 0], [-1, Math.PI]]) {
         filas[0].niveles.forEach((u, k) => {
           ctx.fillStyle = colorNivel(sg * u); ctx.beginPath();
           filas.forEach((f, j) => { const x = X(off + bordes[j][k]) - 0.3, y = Y(f.m); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
@@ -195,7 +201,7 @@ function panelMapa(x0, y0, w, h) {
     i0 = i1 + 1;
   }
   ctx.strokeStyle = "rgba(232,238,246,0.25)"; ctx.lineWidth = 1;
-  for (const t of [Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) { ctx.beginPath(); ctx.moveTo(X(t), y0); ctx.lineTo(X(t), y0 + h); ctx.stroke(); }
+  for (const [t] of guias()) { ctx.beginPath(); ctx.moveTo(X(t), y0); ctx.lineTo(X(t), y0 + h); ctx.stroke(); }
   const iu = mp.filas.findIndex((f, k) => !f.ok && mp.filas.slice(k).every((g) => !g.ok)), lim = iu >= 0 ? mp.filas[iu] : null;
   if (lim && mp.completo) {
     const ml = (lim.m + mp.filas[iu - 1].m) / 2, y = Y(ml);
@@ -207,7 +213,7 @@ function panelMapa(x0, y0, w, h) {
   ctx.strokeStyle = C.texto; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(x0, ym); ctx.lineTo(x0 + w, ym); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = C.texto; ctx.beginPath(); ctx.moveTo(x0 + w + 2, ym); ctx.lineTo(x0 + w + 12, ym - 7); ctx.lineTo(x0 + w + 12, ym + 7); ctx.closePath(); ctx.fill();
   // ejes
-  for (const [t, et] of [[0, "0"], [Math.PI / 2, "π/2"], [Math.PI, "π"], [(3 * Math.PI) / 2, "3π/2"], [2 * Math.PI, "2π"]]) texto(et, X(t), y0 + h + 22, { size: 16, align: t === 0 ? "left" : t === 2 * Math.PI ? "right" : "center" });
+  for (const [t, et] of [[0, "0"], ...guias(), [tramo(), estado.medio ? "π" : "2π"]]) texto(et, X(t), y0 + h + 22, { size: 16, align: t === 0 ? "left" : t === tramo() ? "right" : "center" });
   texto("amplitud", x0 - 10, y0 + 6, { size: 15, align: "right" });
   for (const m of [0.5, 1]) texto(m.toFixed(1), x0 - 10, Y(m) + 6, { size: 15, align: "right" });
   // leyenda de niveles
@@ -235,6 +241,8 @@ for (const h of CANDIDATOS) {
 }
 $("m").oninput = (e) => { estado.m = +e.target.value; $("mval").textContent = estado.m.toFixed(2); paraBarrido(); resuelveActual(); };
 $("niveles").onchange = (e) => { estado.nU = +e.target.value; configura(); };
+function etiquetaPeriodo() { $("periodo").textContent = estado.medio ? "Ver el periodo completo" : "Ver medio periodo"; }
+$("periodo").onclick = () => { estado.medio = !estado.medio; etiquetaPeriodo(); dibuja(); };
 function paraBarrido() { if (estado.barrido) { cancelAnimationFrame(estado.barrido); estado.barrido = null; $("barre").classList.remove("activo"); } }
 $("barre").onclick = () => {
   if (estado.barrido) return paraBarrido();
@@ -254,6 +262,8 @@ addEventListener("resize", () => dibuja());
 {
   const par = new URLSearchParams(location.search), n = +par.get("niveles"), m = parseFloat(par.get("m"));
   if ([3, 5, 7, 9].includes(n)) { estado.nU = n; $("niveles").value = String(n); }
+  if (par.get("periodo") === "completo") estado.medio = false;
+  etiquetaPeriodo();
   if (m >= 0 && m <= M_MAX) { estado.m = m; $("m").value = m; $("mval").textContent = m.toFixed(2); }
 }
 configura();
