@@ -1,0 +1,30 @@
+{
+  "que": "el punto (0, pi) es centro en g1 y silla en g2",
+  "N": 1600,
+  "T": 8.0,
+  "resultados": {
+    "g1": {
+      "autovalores_linealizacion": [
+        "1.4142j",
+        "-1.4142j"
+      ],
+      "anchura_inicial": 0.0349,
+      "anchura_final": 0.0129,
+      "anchura_max": 0.0349,
+      "periodo_xi0=14pi/15_paquete": 4.46,
+      "periodo_xi0=14pi/15_rayo": 4.46,
+      "periodo_linealizado": 4.4429
+    },
+    "g2": {
+      "autovalores_linealizacion": [
+        "(0.5+0j)",
+        "(-0.5+0j)"
+      ],
+      "anchura_inicial": 0.0349,
+      "anchura_final": 0.596,
+      "anchura_max": 0.596,
+      "tasa_crecimiento_anchura": 0.486,
+      "tasa_teorica": 0.5
+    }
+  }
+}

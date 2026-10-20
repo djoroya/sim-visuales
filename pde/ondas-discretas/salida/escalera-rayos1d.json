@@ -1,0 +1,224 @@
+{
+  "que": "distancia entre el centro de energia del paquete (coordenada fisica) y el rayo del hamiltoniano discreto; xi = frecuencia local medida con arg(sum conj(u_j) u_{j+1})",
+  "N": 1600,
+  "T": 5.0,
+  "gamma": "h^-0.9",
+  "casos": [
+    {
+      "caso": "uniforme-pi/4",
+      "fenomeno": "baja frecuencia: rebota en los bordes",
+      "malla": "uniforme",
+      "X0": 0.0,
+      "xi0_pi": 0.25,
+      "max_err_X": 0.0267,
+      "medio_err_X": 0.000987,
+      "max_err_X_lejos_borde": 0.000924,
+      "fraccion_lejos_borde": 0.85,
+      "max_err_xi_lejos_borde": 6.54e-07,
+      "rango_X_rayo": [
+        -0.998,
+        0.997
+      ],
+      "deriva_hamiltoniano_rayo": 2.2e-16,
+      "deriva_energia": 7.5e-15
+    },
+    {
+      "caso": "uniforme-pi",
+      "fenomeno": "no se propaga (v_g = 0)",
+      "malla": "uniforme",
+      "X0": 0.0,
+      "xi0_pi": 1.0,
+      "max_err_X": 2.98e-14,
+      "medio_err_X": 1.03e-14,
+      "max_err_X_lejos_borde": 2.98e-14,
+      "fraccion_lejos_borde": 1.0,
+      "max_err_xi_lejos_borde": 1.69e-14,
+      "rango_X_rayo": [
+        -3.06e-16,
+        0.0
+      ],
+      "deriva_hamiltoniano_rayo": 0.0,
+      "deriva_energia": 3.9e-15
+    },
+    {
+      "caso": "uniforme-7pi/4",
+      "fenomeno": "simetrico de pi/4: va a la derecha",
+      "malla": "uniforme",
+      "X0": 0.0,
+      "xi0_pi": 1.75,
+      "max_err_X": 0.0267,
+      "medio_err_X": 0.000987,
+      "max_err_X_lejos_borde": 0.000924,
+      "fraccion_lejos_borde": 0.85,
+      "max_err_xi_lejos_borde": 6.54e-07,
+      "rango_X_rayo": [
+        -0.997,
+        0.998
+      ],
+      "deriva_hamiltoniano_rayo": 2.2e-16,
+      "deriva_energia": 7.7e-15
+    },
+    {
+      "caso": "g1-pi/4",
+      "fenomeno": "baja frecuencia en g1: como el continuo",
+      "malla": "g1",
+      "X0": 0.0,
+      "xi0_pi": 0.25,
+      "max_err_X": 0.0222,
+      "medio_err_X": 0.00104,
+      "max_err_X_lejos_borde": 0.00165,
+      "fraccion_lejos_borde": 0.73,
+      "max_err_xi_lejos_borde": 0.00187,
+      "rango_X_rayo": [
+        -0.999,
+        0.998
+      ],
+      "deriva_hamiltoniano_rayo": 3.8e-11,
+      "deriva_energia": 7.3e-15
+    },
+    {
+      "caso": "g1-7pi/15",
+      "fenomeno": "reflexion interna sin tocar el borde",
+      "malla": "g1",
+      "X0": 0.0,
+      "xi0_pi": 0.4667,
+      "max_err_X": 0.00115,
+      "medio_err_X": 0.000488,
+      "max_err_X_lejos_borde": 0.00115,
+      "fraccion_lejos_borde": 1.0,
+      "max_err_xi_lejos_borde": 0.00408,
+      "rango_X_rayo": [
+        -0.703,
+        0.703
+      ],
+      "deriva_hamiltoniano_rayo": 3.1e-11,
+      "deriva_energia": 4.4e-15
+    },
+    {
+      "caso": "g1-10pi/15",
+      "fenomeno": "reflexion interna, amplitud menor",
+      "malla": "g1",
+      "X0": 0.0,
+      "xi0_pi": 0.6667,
+      "max_err_X": 0.00126,
+      "medio_err_X": 0.000427,
+      "max_err_X_lejos_borde": 0.00126,
+      "fraccion_lejos_borde": 1.0,
+      "max_err_xi_lejos_borde": 0.0027,
+      "rango_X_rayo": [
+        -0.393,
+        0.393
+      ],
+      "deriva_hamiltoniano_rayo": 5.6e-11,
+      "deriva_energia": 4.9e-15
+    },
+    {
+      "caso": "g1-13pi/15",
+      "fenomeno": "reflexion interna, cerca del centro",
+      "malla": "g1",
+      "X0": 0.0,
+      "xi0_pi": 0.8667,
+      "max_err_X": 0.000507,
+      "medio_err_X": 0.000193,
+      "max_err_X_lejos_borde": 0.000507,
+      "fraccion_lejos_borde": 1.0,
+      "max_err_xi_lejos_borde": 0.00117,
+      "rango_X_rayo": [
+        -0.149,
+        0.149
+      ],
+      "deriva_hamiltoniano_rayo": 1.2e-11,
+      "deriva_energia": 5.1e-15
+    },
+    {
+      "caso": "g1-pi",
+      "fenomeno": "equilibrio (centro): no se propaga ni se dispersa",
+      "malla": "g1",
+      "X0": 0.0,
+      "xi0_pi": 1.0,
+      "max_err_X": 1.53e-13,
+      "medio_err_X": 4.8e-14,
+      "max_err_X_lejos_borde": 1.53e-13,
+      "fraccion_lejos_borde": 1.0,
+      "max_err_xi_lejos_borde": 4.44e-13,
+      "rango_X_rayo": [
+        -2.83e-14,
+        2e-14
+      ],
+      "deriva_hamiltoniano_rayo": 0.0,
+      "deriva_energia": 4.1e-15
+    },
+    {
+      "caso": "g2-pi/4",
+      "fenomeno": "baja frecuencia en g2",
+      "malla": "g2",
+      "X0": 0.0,
+      "xi0_pi": 0.25,
+      "max_err_X": 0.027,
+      "medio_err_X": 0.00106,
+      "max_err_X_lejos_borde": 0.000951,
+      "fraccion_lejos_borde": 0.86,
+      "max_err_xi_lejos_borde": 0.00021,
+      "rango_X_rayo": [
+        -0.995,
+        0.996
+      ],
+      "deriva_hamiltoniano_rayo": 4.4e-12,
+      "deriva_energia": 6.5e-15
+    },
+    {
+      "caso": "g2-x0=1/2-pi",
+      "fenomeno": "atrapada en x > 0: toca solo un borde",
+      "malla": "g2",
+      "X0": 0.5,
+      "xi0_pi": 1.0,
+      "max_err_X": 0.0611,
+      "medio_err_X": 0.00546,
+      "max_err_X_lejos_borde": 0.0077,
+      "fraccion_lejos_borde": 0.84,
+      "max_err_xi_lejos_borde": 0.0159,
+      "rango_X_rayo": [
+        0.5,
+        1.0
+      ],
+      "deriva_hamiltoniano_rayo": 4.3e-12,
+      "deriva_energia": 4.3e-15
+    },
+    {
+      "caso": "g2-x0=-1/2-pi",
+      "fenomeno": "atrapada en x < 0: toca solo un borde",
+      "malla": "g2",
+      "X0": -0.5,
+      "xi0_pi": 1.0,
+      "max_err_X": 0.0611,
+      "medio_err_X": 0.00546,
+      "max_err_X_lejos_borde": 0.0077,
+      "fraccion_lejos_borde": 0.84,
+      "max_err_xi_lejos_borde": 0.0159,
+      "rango_X_rayo": [
+        -1.0,
+        -0.5
+      ],
+      "deriva_hamiltoniano_rayo": 4.3e-12,
+      "deriva_energia": 5.5e-15
+    },
+    {
+      "caso": "g2-pi",
+      "fenomeno": "equilibrio (silla): no se propaga pero se dispersa",
+      "malla": "g2",
+      "X0": 0.0,
+      "xi0_pi": 1.0,
+      "max_err_X": 7.63e-15,
+      "medio_err_X": 1.38e-15,
+      "max_err_X_lejos_borde": 7.63e-15,
+      "fraccion_lejos_borde": 1.0,
+      "max_err_xi_lejos_borde": 7.99e-15,
+      "rango_X_rayo": [
+        -4.71e-16,
+        0.0
+      ],
+      "deriva_hamiltoniano_rayo": 0.0,
+      "deriva_energia": 6.2e-15
+    }
+  ]
+}

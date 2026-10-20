@@ -1,0 +1,17 @@
+{
+  "que": "autovalores de M^-1 K (uniforme) frente a 4/h^2 sin^2(k pi h/4)",
+  "resultados": {
+    "100": {
+      "h": 0.0198,
+      "max_err_rel_autovalor": 5.8e-14
+    },
+    "400": {
+      "h": 0.00499,
+      "max_err_rel_autovalor": 9.7e-12
+    },
+    "1600": {
+      "h": 0.00125,
+      "max_err_rel_autovalor": 7.9e-11
+    }
+  }
+}

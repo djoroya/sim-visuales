@@ -1,0 +1,3 @@
+# fotogramas y temporales: se regeneran con run.sh
+tmp/
+__pycache__/

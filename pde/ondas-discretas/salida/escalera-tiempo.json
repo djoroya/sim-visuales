@@ -1,0 +1,39 @@
+{
+  "que": "leapfrog (dt = cfl h) frente a la integracion exacta por autovectores",
+  "caso": {
+    "malla": "g1",
+    "N": 400,
+    "X0": 0,
+    "xi0": "7pi/15",
+    "T": 5.0
+  },
+  "leapfrog": [
+    {
+      "cfl": 0.1,
+      "dt": 0.000499,
+      "dif_rel_u_T": 1.72,
+      "max_dif_centro": 0.0105
+    },
+    {
+      "cfl": 0.05,
+      "dt": 0.000249,
+      "dif_rel_u_T": 0.51,
+      "max_dif_centro": 0.00259
+    },
+    {
+      "cfl": 0.025,
+      "dt": 0.000125,
+      "dif_rel_u_T": 0.129,
+      "max_dif_centro": 0.000645
+    },
+    {
+      "cfl": 0.0125,
+      "dt": 6.23e-05,
+      "dif_rel_u_T": 0.0322,
+      "max_dif_centro": 0.000161
+    }
+  ],
+  "orden_observado": 1.92,
+  "deriva_energia_exacta": 3.4e-15,
+  "nota": "con dt = 0.1 h el leapfrog del articulo comete un error de fase O(1) a esta frecuencia: omega dt = 0.2 sin(xi/2)/g' no depende de h. Por eso aqui se integra exactamente en tiempo."
+}
