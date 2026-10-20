@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perros que obedecen · MPC en tiempo real</title>
+<style>
+  :root { --navy:#0d1f36; --navy2:#13294a; --on:#e8eef6; --suave:#8fa3bd; --warm:#f59e0b; --azul:#4f9be8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--navy); color:var(--on); font:15px/1.45 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  p.sub { color: var(--suave); margin: 0 0 12px; }
+  .lienzo { position: relative; width: 100%; aspect-ratio: 600 / 440; background: var(--navy2); border-radius: 6px; overflow: hidden; touch-action: manipulation; }
+  canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+  .hud { position: absolute; left: 10px; top: 8px; font: 12px/1.4 ui-monospace, monospace; color: var(--suave); pointer-events: none; }
+  .barra { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 10px 0; font-size: 14px; }
+  select, button { background: var(--navy2); color: var(--on); border: 1px solid #2d4466; border-radius: 4px; padding: 5px 9px; font: inherit; }
+  button.activo { border-color: var(--warm); color: var(--warm); }
+  label { color: var(--suave); }
+  .nota { color: var(--suave); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tres perros que obedecen: control predictivo en tiempo real</h1>
+  <p class="sub">Haz clic en el campo para decir a dónde llevar el rebaño. Dentro del corral, lo meten por la puerta.</p>
+  <div class="lienzo"><canvas id="lienzo" width="1200" height="880"></canvas><div class="hud" id="hud">cargando…</div></div>
+  <div class="barra">
+    <label>Corral <select id="escenario">
+      <option value="izquierda">puerta a la izquierda</option>
+      <option value="arriba">puerta arriba</option>
+      <option value="estrecha">puerta estrecha</option>
+    </select></label>
+    <button id="reinicia">Reiniciar</button>
+    <label>Velocidad <select id="velocidad"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="10" selected>10×</option><option value="20">20×</option></select></label>
+    <button id="plan">Ver lo que planean</button>
+  </div>
+  <p class="nota">Cada 2,5 unidades de tiempo, un controlador predictivo (MPC) resuelve en tu navegador un problema de control óptimo con un modelo reducido del rebaño, compilado de CasADi a WebAssembly, y reparte las tareas entre los perros.</p>
+</main>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

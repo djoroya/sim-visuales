@@ -1,0 +1,8 @@
+# pruebas, trazas y vídeos: se regeneran con python/valida.py y web/prueba/
+tmp/
+# generados por wasm/build.sh
+wasm/mpc_coste.c
+wasm/mpc_coste.h
+wasm/libmpc.so
+python/__pycache__/
+python/val_*
