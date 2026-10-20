@@ -11,7 +11,7 @@
   main { max-width: 1100px; margin: 0 auto; padding: 16px; }
   h1 { font-size: 1.25rem; margin: 0 0 4px; }
   p.sub { color: var(--suave); margin: 0 0 12px; }
-  .lienzo { position: relative; width: 100%; aspect-ratio: 1200 / 900; background: var(--navy2); border-radius: 6px; overflow: hidden; }
+  .lienzo { position: relative; width: 100%; aspect-ratio: 1200 / 760; background: var(--navy2); border-radius: 6px; overflow: hidden; }
   canvas { width: 100%; height: 100%; display: block; }
   .barra { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 10px 0; font-size: 14px; }
   select, button { background: var(--navy2); color: var(--on); border: 1px solid #2d4466; border-radius: 4px; padding: 5px 9px; font: inherit; }
@@ -26,7 +26,7 @@
   /* incrustado en un artículo (?incrustado): solo el lienzo y los controles */
   body.incrustado main { padding: 0; }
   body.incrustado h1, body.incrustado p.sub, body.incrustado .nota { display: none; }
-  body.incrustado .barra { margin: 8px 0 0; }
+  body.incrustado .barra { margin: 0 0 8px; }
 </style>
 </head>
 <body>
@@ -34,13 +34,13 @@
 <main>
   <h1>Armónicos a la carta: eliminación selectiva por control óptimo</h1>
   <p class="sub">Mueve la amplitud y elige qué armónicos eliminar: la forma de la onda, cuántas veces conmuta y dónde salen solas.</p>
-  <div class="lienzo"><canvas id="lienzo" width="1200" height="900"></canvas></div>
   <div class="barra">
     <label>Amplitud <input id="m" type="range" min="0" max="1.25" step="0.0025" value="0.8"> <output id="mval">0.80</output></label>
     <label>Niveles <select id="niveles"><option>3</option><option selected>5</option><option>7</option><option>9</option></select></label>
     <button id="barre">Barrer amplitud</button>
   </div>
   <div class="barra armonicos" id="armonicos"><label>Eliminar</label></div>
+  <div class="lienzo"><canvas id="lienzo" width="1200" height="760"></canvas></div>
   <p class="nota">La onda se calcula en tu navegador resolviendo un problema de control óptimo por su dual: el control
     queda fijado por un vector de dos números por armónico, que se obtiene con unas pocas iteraciones de Newton.
     Número impar de niveles (incluye el 0): con uno par, la penalización no fuerza la escalera para amplitudes pequeñas.</p>

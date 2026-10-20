@@ -3,13 +3,18 @@ import { problema, resuelve, espectro } from "./she.js";
 
 const C = { fondo: "#13294a", rejilla: "#2d4466", texto: "#e8eef6", suave: "#8fa3bd", warm: "#f59e0b", azul: "#4f9be8", verde: "#3fb27f", rojo: "#e8604f" };
 const lienzo = document.getElementById("lienzo"), ctx = lienzo.getContext("2d");
-// Dos composiciones del lienzo: ancha (1200 x 900) y estrecha (760 x 1080, para móvil: la
-// letra del lienzo, a escala, sigue siendo legible).
-let W = 1200, Hc = 900;
+// Dos composiciones del lienzo. Ancha (1200 x 760): a la izquierda la onda y, debajo, el mapa
+// de soluciones con el MISMO eje de ángulo (0 a 2π), para que la fila marcada del mapa sea la
+// onda de arriba; a la derecha, el espectro en barras horizontales y los datos. Estrecha
+// (760 x 1560, móvil): todo apilado.
+let W = 1200, Hc = 760, G = null;
 function ajusta() {
   const estrecho = lienzo.parentElement.clientWidth < 600;
-  [W, Hc] = estrecho ? [760, 1080] : [1200, 900];
+  [W, Hc] = estrecho ? [760, 1560] : [1200, 760];
   if (lienzo.width !== W) { lienzo.width = W; lienzo.height = Hc; lienzo.parentElement.style.aspectRatio = `${W} / ${Hc}`; }
+  G = estrecho
+    ? { onda: [80, 70, 650, 220], mapa: [80, 360, 650, 420], esp: [80, 870, 650, 500], datos: [24, 1420], ancho: false }
+    : { onda: [90, 60, 800, 210], mapa: [90, 330, 800, 360], esp: [990, 60, 180, 500], datos: [935, 610], ancho: true };
 }
 const $ = (id) => document.getElementById(id);
 const CANDIDATOS = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25];
@@ -117,109 +122,105 @@ function texto(s, x, y, { color = C.suave, size = 22, align = "left", bold = fal
 
 function panelOnda(x0, y0, w, h) {
   const r = estado.sol, ok = factible(r), m = estado.m;
-  texto("Onda en un periodo", x0, y0 - 12, { color: C.texto, bold: true });
-  const X = (t) => x0 + (t / (2 * Math.PI)) * w, Y = (u) => y0 + h / 2 - (u * h) / 2.6;
+  texto("La onda (un periodo)", x0, y0 - 16, { color: C.texto, bold: true });
+  texto("— — objetivo: la fundamental", x0 + w, y0 - 16, { color: C.warm, size: 17, align: "right" });
+  const X = (t) => x0 + (t / (2 * Math.PI)) * w, Y = (u) => y0 + h / 2 - (u * h) / 2.5;
   ctx.strokeStyle = C.rejilla; ctx.lineWidth = 1;
   for (const u of estado.P.U) { ctx.beginPath(); ctx.moveTo(x0, Y(u)); ctx.lineTo(x0 + w, Y(u)); ctx.stroke(); }
-  ctx.beginPath(); ctx.moveTo(X(Math.PI), y0); ctx.lineTo(X(Math.PI), y0 + h); ctx.stroke();
-  // objetivo: m sin τ
+  for (const t of [Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) { ctx.beginPath(); ctx.moveTo(X(t), y0); ctx.lineTo(X(t), y0 + h); ctx.stroke(); }
   ctx.strokeStyle = C.warm; ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.beginPath();
   for (let i = 0; i <= 400; i++) { const t = (2 * Math.PI * i) / 400; i ? ctx.lineTo(X(t), Y(m * Math.sin(t))) : ctx.moveTo(X(t), Y(m * Math.sin(t))); }
   ctx.stroke(); ctx.setLineDash([]);
-  // escalera: [0, π] y su antisimétrica en [π, 2π]
+  if (!ok) { texto("sin solución para esta amplitud", x0 + w / 2, y0 + h / 2 - 20, { color: C.rojo, size: 20, align: "center" }); return; }
   const bordes = [0, ...r.ts, Math.PI];
-  ctx.strokeStyle = ok ? C.texto : C.rojo; ctx.lineWidth = 3; ctx.beginPath();
+  ctx.strokeStyle = C.texto; ctx.lineWidth = 3; ctx.beginPath();
   for (const s of [1, -1]) {
     const off = s === 1 ? 0 : Math.PI;
-    r.niveles.forEach((u, k) => {
-      const xa = X(off + bordes[k]), xb = X(off + bordes[k + 1]), y = Y(s * u);
-      if (k === 0 && s === 1) ctx.moveTo(xa, y); else ctx.lineTo(xa, y);
-      ctx.lineTo(xb, y);
-    });
+    r.niveles.forEach((u, k) => { const xa = X(off + bordes[k]), xb = X(off + bordes[k + 1]), y = Y(s * u); if (k === 0 && s === 1) ctx.moveTo(xa, y); else ctx.lineTo(xa, y); ctx.lineTo(xb, y); });
   }
   ctx.stroke();
-  texto("0", x0 - 8, Y(0) + 7, { align: "right", size: 18 }); texto("π", X(Math.PI), y0 + h + 22, { align: "center", size: 18 });
-  texto("2π", X(2 * Math.PI), y0 + h + 22, { align: "right", size: 18 });
-  texto("— — objetivo: la fundamental", x0 + w, y0 - 12, { color: C.warm, size: 18, align: "right" });
+  texto("0", x0 - 10, Y(0) + 6, { align: "right", size: 16 }); texto("1", x0 - 10, Y(1) + 6, { align: "right", size: 16 }); texto("−1", x0 - 10, Y(-1) + 6, { align: "right", size: 16 });
 }
 
 function panelEspectro(x0, y0, w, h) {
-  const r = estado.sol, esp = espectro(r.ts, r.niveles, 49);
-  const thd = Math.sqrt(esp.slice(1).reduce((s, e) => s + e.amp ** 2, 0)) / Math.max(esp[0].amp, 1e-12);
-  texto(W >= 1000 ? "Espectro: amplitud de cada armónico impar" : "Espectro", x0, y0 - 12, { color: C.texto, bold: true });
-  texto(`distorsión (hasta el 49.º): ${(100 * thd).toFixed(1)} %`, x0 + w, y0 - 12, { size: 18, align: "right" });
-  const amax = 1.3, bw = w / esp.length;
-  const Y = (a) => y0 + h - (Math.min(a, amax) / amax) * h;
-  ctx.strokeStyle = C.rejilla; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, y0 + h); ctx.lineTo(x0 + w, y0 + h); ctx.stroke();
+  const r = estado.sol; if (!factible(r)) return;
+  const esp = espectro(r.ts, r.niveles, 49);
+  texto("Espectro", x0 - 40, y0 - 16, { color: C.texto, bold: true });
+  const fh = h / esp.length, amax = 1.3, L = (a) => (Math.min(a, amax) / amax) * w;
+  ctx.strokeStyle = C.rejilla; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + h); ctx.stroke();
   esp.forEach((e, i) => {
-    const x = x0 + i * bw, elim = estado.elim.has(e.h);
-    ctx.fillStyle = e.h === 1 ? C.warm : elim ? C.verde : C.suave;
-    const y = Y(e.amp); ctx.fillRect(x + bw * 0.18, y, bw * 0.64, y0 + h - y);
-    if (elim) { ctx.strokeStyle = C.verde; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x + bw / 2, y0 + h - 9, 7, 0, 2 * Math.PI); ctx.stroke(); }
-    if (W >= 1000 ? e.h <= 25 || e.h === 37 || e.h === 49 : e.h <= 13 || e.h === 25 || e.h === 49) texto(String(e.h), x + bw / 2, y0 + h + 22, { size: 16, align: "center", color: elim ? C.verde : C.suave });
+    const y = y0 + i * fh, elim = estado.elim.has(e.h), col = e.h === 1 ? C.warm : elim ? C.verde : C.suave;
+    texto(String(e.h), x0 - 8, y + fh * 0.72, { size: Math.min(15, fh * 0.8), align: "right", color: e.h === 1 ? C.warm : elim ? C.verde : C.suave });
+    if (elim) { ctx.strokeStyle = C.verde; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(x0 + 8, y + fh / 2, Math.min(5, fh * 0.3), 0, 2 * Math.PI); ctx.stroke(); }
+    else { ctx.fillStyle = col; ctx.fillRect(x0 + 1, y + fh * 0.18, Math.max(1, L(e.amp)), fh * 0.64); }
   });
 }
 
+function panelDatos(x, y) {
+  const r = estado.sol, ok = factible(r), resMax = Math.max(...r.residuo.map(Math.abs));
+  const esp = espectro(r.ts, r.niveles, 49), thd = Math.sqrt(esp.slice(1).reduce((s, e) => s + e.amp ** 2, 0)) / Math.max(esp[0].amp, 1e-12);
+  const lineas = ok
+    ? [[`amplitud ${estado.m.toFixed(3)}`, C.texto], [`${r.ts.length} conmutaciones`, C.suave], ["por semiperiodo", C.suave], [`error < ${resMax < 1e-6 ? "10⁻⁶" : resMax.toExponential(0)} en los elegidos`, C.suave],
+       [`distorsión ≤49.º: ${(100 * thd).toFixed(1)} %`, C.suave], [`${estado.ms.toFixed(1)} ms (${r.iter} it.)`, C.suave]]
+    : [[`amplitud ${estado.m.toFixed(3)}`, C.texto], ["INALCANZABLE con", C.rojo], [`${estado.nU} niveles y estos armónicos`, C.rojo]];
+  lineas.forEach(([t, c], i) => texto(t, x, y + i * 24, { size: i ? 16 : 19, color: c, bold: i === 0 }));
+}
+
 function panelMapa(x0, y0, w, h) {
-  texto(W >= 1000 ? "Todas las soluciones: la onda en medio periodo para cada amplitud" : "Todas las soluciones (medio periodo)", x0, y0 - 12, { color: C.texto, bold: true });
+  texto(G.ancho ? "Todas las soluciones: la onda para cada amplitud" : "Todas las soluciones", x0, y0 - 16, { color: C.texto, bold: true });
   const mp = estado.mapa; if (!mp) return;
-  const X = (t) => x0 + (t / Math.PI) * w, Y = (m) => y0 + h - (m / M_MAX) * h;
+  const X = (t) => x0 + (t / (2 * Math.PI)) * w, Y = (m) => y0 + h - (m / M_MAX) * h;
   ctx.fillStyle = "#1c2a40"; ctx.fillRect(x0, y0, w, h);                 // sin solución: el fondo
   // Cada tramo de filas seguidas con la misma estructura se dibuja como un polígono por nivel
   // (borde izquierdo subiendo, derecho bajando): sin costuras entre filas. El tramo se alarga
   // hasta la fila siguiente, que está a menos de 2·10⁻⁴ (el cambio ya está localizado).
+  // Segunda mitad del periodo: la misma figura desplazada π, con los niveles cambiados de signo.
   const F = mp.filas;
   for (let i0 = 0; i0 < F.length; ) {
     let i1 = i0; while (i1 + 1 < F.length && estructura(F[i1 + 1]) === estructura(F[i0])) i1++;
     if (F[i0].ok) {
       const filas = F.slice(i0, i1 + 1), techo = i1 + 1 < F.length ? F[i1 + 1].m : F[i1].m;
       const bordes = filas.map((f) => [0, ...f.ts, Math.PI]);
-      filas[0].niveles.forEach((u, k) => {
-        ctx.fillStyle = colorNivel(u); ctx.beginPath();
-        filas.forEach((f, j) => { const x = X(bordes[j][k]) - 0.3, y = Y(f.m); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-        // un píxel de solape con el tramo de encima: sin raya de suavizado en el borde común
-        ctx.lineTo(X(bordes[bordes.length - 1][k]) - 0.3, Y(techo) - 1); ctx.lineTo(X(bordes[bordes.length - 1][k + 1]) + 0.3, Y(techo) - 1);
-        for (let j = filas.length - 1; j >= 0; j--) ctx.lineTo(X(bordes[j][k + 1]) + 0.3, Y(filas[j].m));
-        ctx.closePath(); ctx.fill();
-      });
+      for (const [sg, off] of [[1, 0], [-1, Math.PI]]) {
+        filas[0].niveles.forEach((u, k) => {
+          ctx.fillStyle = colorNivel(sg * u); ctx.beginPath();
+          filas.forEach((f, j) => { const x = X(off + bordes[j][k]) - 0.3, y = Y(f.m); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+          // un píxel de solape con el tramo de encima: sin raya de suavizado en el borde común
+          ctx.lineTo(X(off + bordes[bordes.length - 1][k]) - 0.3, Y(techo) - 1); ctx.lineTo(X(off + bordes[bordes.length - 1][k + 1]) + 0.3, Y(techo) - 1);
+          for (let j = filas.length - 1; j >= 0; j--) ctx.lineTo(X(off + bordes[j][k + 1]) + 0.3, Y(filas[j].m));
+          ctx.closePath(); ctx.fill();
+        });
+      }
     }
     i0 = i1 + 1;
   }
+  ctx.strokeStyle = "rgba(232,238,246,0.25)"; ctx.lineWidth = 1;
+  for (const t of [Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) { ctx.beginPath(); ctx.moveTo(X(t), y0); ctx.lineTo(X(t), y0 + h); ctx.stroke(); }
   const iu = mp.filas.findIndex((f, k) => !f.ok && mp.filas.slice(k).every((g) => !g.ok)), lim = iu >= 0 ? mp.filas[iu] : null;
   if (lim && mp.completo) {
-    const y = Y((lim.m + mp.filas[iu - 1].m) / 2);                      // borde inferior de la zona sin solución
+    const ml = (lim.m + mp.filas[iu - 1].m) / 2, y = Y(ml);
     ctx.strokeStyle = C.rojo; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + w, y); ctx.stroke();
-    texto(`sin solución por encima de ${((lim.m + mp.filas[iu - 1].m) / 2).toFixed(3)}` + (W >= 1000 ? " (franja oscura)" : ""), x0 + w / 2, y0 + h + 22, { size: 18, align: "center", color: C.rojo });
+    texto(`sin solución por encima de ${ml.toFixed(3)}`, x0 + w, y0 - 16, { size: 16, align: "right", color: C.rojo });
   }
-  // amplitud actual
-  const ym = y0 + h - (estado.m / M_MAX) * h;
+  // amplitud actual: esa fila es la onda de arriba
+  const ym = Y(estado.m);
   ctx.strokeStyle = C.texto; ctx.lineWidth = 2; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(x0, ym); ctx.lineTo(x0 + w, ym); ctx.stroke(); ctx.setLineDash([]);
-  texto("0", x0, y0 + h + 22, { size: 18 }); texto("π", x0 + w, y0 + h + 22, { size: 18, align: "right" });
-  texto("amplitud", x0 - 12, y0 + 18, { size: 18, align: "right" });
-  for (const m of [0, 0.5, 1]) texto(m.toFixed(1), x0 - 12, y0 + h - (m / M_MAX) * h + 6, { size: 16, align: "right" });
+  ctx.fillStyle = C.texto; ctx.beginPath(); ctx.moveTo(x0 + w + 2, ym); ctx.lineTo(x0 + w + 12, ym - 7); ctx.lineTo(x0 + w + 12, ym + 7); ctx.closePath(); ctx.fill();
+  // ejes
+  for (const [t, et] of [[0, "0"], [Math.PI / 2, "π/2"], [Math.PI, "π"], [(3 * Math.PI) / 2, "3π/2"], [2 * Math.PI, "2π"]]) texto(et, X(t), y0 + h + 22, { size: 16, align: t === 0 ? "left" : t === 2 * Math.PI ? "right" : "center" });
+  texto("amplitud", x0 - 10, y0 + 6, { size: 15, align: "right" });
+  for (const m of [0.5, 1]) texto(m.toFixed(1), x0 - 10, Y(m) + 6, { size: 15, align: "right" });
   // leyenda de niveles
-  const U = estado.P.U, lw = 34;
-  U.forEach((u, k) => { ctx.fillStyle = colorNivel(u); ctx.fillRect(x0 + w - (U.length - k) * lw, y0 - 34, lw - 3, 14); });
+  const U = estado.P.U, lw = 28, ly = y0 + h + 34;
+  texto("niveles", x0, ly + 12, { size: 15 });
+  U.forEach((u, k) => { ctx.fillStyle = colorNivel(u); ctx.fillRect(x0 + 62 + k * lw, ly, lw - 3, 14); });
 }
 
 function dibuja() {
   if (!estado.sol) return;
   ajusta();
   ctx.fillStyle = C.fondo; ctx.fillRect(0, 0, W, Hc);
-  const r = estado.sol, ok = factible(r);
-  const resMax = Math.max(...r.residuo.map(Math.abs));
-  const linea = ok
-    ? `amplitud ${estado.m.toFixed(3)} · ${r.ts.length} conmutaciones por semiperiodo · armónicos elegidos: |error| < ${resMax < 1e-6 ? "10⁻⁶" : resMax.toExponential(0)} · ${estado.ms.toFixed(1)} ms (${r.iter} it.)`
-    : `amplitud ${estado.m.toFixed(3)}: INALCANZABLE con ${estado.nU} niveles y estos armónicos (error ${resMax.toFixed(3)})`;
-  if (W >= 1000) {
-    texto(linea, 30, 34, { size: 19, color: ok ? C.suave : C.rojo });
-    panelOnda(70, 90, 1100, 250); panelEspectro(70, 420, 1100, 160); panelMapa(120, 680, 1050, 190);
-  } else {
-    // en dos líneas: la amplitud y el veredicto, y el resto
-    const [a, ...b] = linea.split(" · ");
-    texto(a, 24, 34, { size: 21, color: ok ? C.texto : C.rojo }); texto(b.join(" · ").replace("armónicos elegidos: |error|", "error"), 24, 62, { size: 18, color: ok ? C.suave : C.rojo });
-    panelOnda(50, 125, 690, 250); panelEspectro(50, 460, 690, 170); panelMapa(90, 745, 650, 270);
-  }
+  panelOnda(...G.onda); panelMapa(...G.mapa); panelEspectro(...G.esp); panelDatos(...G.datos);
 }
 
 // ---- controles ----
