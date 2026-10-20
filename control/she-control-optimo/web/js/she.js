@@ -8,20 +8,36 @@ import { crucesTrig } from "./raices.js";
 
 const NM = 2000;                       // muestras para localizar las conmutaciones (método muestreado)
 
-/** Prepara un problema: harmónicos (Ea: cosenos, Eb: senos) y niveles (ordenados). */
-export function problema(Ea, Eb, U, { exacto = false } = {}) {
+/**
+ * Prepara un problema: harmónicos (Ea: cosenos, Eb: senos) y niveles (ordenados). u0: dónde
+ * está el mínimo de la penalización, L = interpolación lineal de (u - u0)² en los niveles
+ * (por defecto 0, como en el artículo; Lk.m también lo tenía como parámetro).
+ */
+export function problema(Ea, Eb, U, { exacto = false, u0 = 0, pendientes = null, penalizados = null, pesoControlados = 1e8 } = {}) {
   U = [...U].sort((a, b) => a - b);
-  const c = U.slice(0, -1).map((u, k) => u + U[k + 1]);       // umbrales de -m
-  const H = [...Ea, ...Eb], n = H.length, na = Ea.length;
+  // umbrales de -m: las pendientes de L entre niveles, (u_{k+1} - u0)² - (u_k - u0)² entre
+  // u_{k+1} - u_k, que es u_k + u_{k+1} - 2 u0. O, en general, cualesquiera pendientes
+  // crecientes (L convexa y lineal a trozos con vértices en los niveles: sigue forzando la
+  // escalera); L en cada nivel, acumulando las pendientes.
+  const c = pendientes ? [...pendientes] : U.slice(0, -1).map((u, k) => u + U[k + 1] - 2 * u0);
+  const Lniv = pendientes ? U.map((_, k) => { let s = 0; for (let j = 0; j < k; j++) s += c[j] * (U[j + 1] - U[j]); return s; }) : U.map((u) => (u - u0) ** 2);
+  // Filas: los coeficientes controlados (cosenos Ea, senos Eb) y, si se piden, los
+  // penalizados: armónicos que no se eliminan pero pagan γ·w_h·(a_h² + b_h²) en el coste
+  // (distorsión). Peso de cada fila en el coste cuadrático: W (controlados: 1, o muy alto si
+  // hay penalizados, para que sigan siendo prácticamente exactos).
+  const Hp = penalizados ? penalizados.H : [];
+  const H = [...Ea, ...Eb, ...Hp, ...Hp], na = Ea.length, nc = Ea.length + Eb.length, n = H.length;
+  const esCos = H.map((_, r) => r < na || (r >= nc && r < nc + Hp.length));
+  const W = H.map((h, r) => (r < nc ? (penalizados ? pesoControlados : 1) : penalizados.gamma * penalizados.w(h)));
   // D en la rejilla de muestras, por filas
   const tau = Float64Array.from({ length: NM + 1 }, (_, i) => (Math.PI * i) / NM);
-  const Dm = H.map((h, r) => tau.map((t) => (2 / Math.PI) * (r < na ? Math.cos(h * t) : Math.sin(h * t))));
-  return { Ea, Eb, U, c, H, n, na, tau, Dm, exacto };
+  const Dm = H.map((h, r) => tau.map((t) => (2 / Math.PI) * (esCos[r] ? Math.cos(h * t) : Math.sin(h * t))));
+  return { Ea, Eb, U, c, H, n, na, nc, esCos, W, tau, Dm, exacto, u0, Lniv };
 }
 
-const D = (P, t) => P.H.map((h, r) => (2 / Math.PI) * (r < P.na ? Math.cos(h * t) : Math.sin(h * t)));
-const Dp = (P, t) => P.H.map((h, r) => (2 / Math.PI) * (r < P.na ? -h * Math.sin(h * t) : h * Math.cos(h * t)));
-const prim = (P, t) => P.H.map((h, r) => (2 / Math.PI) * (r < P.na ? Math.sin(h * t) / h : -Math.cos(h * t) / h));
+const D = (P, t) => P.H.map((h, r) => (2 / Math.PI) * (P.esCos[r] ? Math.cos(h * t) : Math.sin(h * t)));
+const Dp = (P, t) => P.H.map((h, r) => (2 / Math.PI) * (P.esCos[r] ? -h * Math.sin(h * t) : h * Math.cos(h * t)));
+const prim = (P, t) => P.H.map((h, r) => (2 / Math.PI) * (P.esCos[r] ? Math.sin(h * t) / h : -Math.cos(h * t) / h));
 const dot = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
 
 /** Índice del nivel óptimo para un valor de m: el primer umbral c_k con -m <= c_k. */
@@ -47,7 +63,7 @@ export function conmutacionesExactas(P, q) {
     P.cache = P.c.map(() => ({}));
   }
   const Hs = P.armonicos, alfa = new Float64Array(Hs.length), beta = new Float64Array(Hs.length);
-  P.H.forEach((h, r) => { const i = Hs.indexOf(h); if (r < P.na) alfa[i] += (2 / Math.PI) * q[r]; else beta[i] += (2 / Math.PI) * q[r]; });
+  P.H.forEach((h, r) => { const i = Hs.indexOf(h); if (P.esCos[r]) alfa[i] += (2 / Math.PI) * q[r]; else beta[i] += (2 / Math.PI) * q[r]; });
   let ts = [];
   P.c.forEach((c, kk) => { ts.push(...crucesTrig(Hs, alfa, beta, c, P.cache[kk])); });
   ts.sort((a, b) => a - b);
@@ -129,7 +145,7 @@ function evalua(P, q) {
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) HG[i][j] += w * d[i] * d[j];
   });
   const bordes = [0, ...ts, Math.PI];
-  let L = 0; niveles.forEach((u, s) => { L += (bordes[s + 1] - bordes[s]) * u * u; });
+  let L = 0; niveles.forEach((u, s) => { L += (bordes[s + 1] - bordes[s]) * P.Lniv[P.U.indexOf(u)]; });
   return { g, HG, ts, niveles, psi: dot(q, g) + L };
 }
 
@@ -154,13 +170,13 @@ function resuelveSPD(A, b) {
  */
 export function resuelve(P, x0, opciones = {}) {
   const r = resuelveEps(P, x0, opciones);
-  if (Math.max(...r.residuo.map(Math.abs)) < 1e-4 || opciones.sinRescate) return r;
+  const res = (x) => Math.max(...x.residuo.slice(0, P.nc).map(Math.abs));   // solo los controlados
+  if (res(r) < 1e-4 || opciones.sinRescate) return r;
   // Rescate por continuación en ε: con ε grande el dual es más suave y Newton no se atasca en
   // sus pliegues; se baja ε arrancando cada vez de la solución anterior.
   let q = null, rc = null;
   for (const e of [1e-2, 1e-3, 1e-4, 1e-5, opciones.eps ?? 1e-6]) { rc = resuelveEps(P, x0, { ...opciones, eps: e, q0: q }); q = rc.q; }
   rc.iter += r.iter;
-  const res = (x) => Math.max(...x.residuo.map(Math.abs));
   let mejor = res(rc) < res(r) ? rc : r;
   // Rescate por desplazamiento: justo donde nace o muere un pulso (dos conmutaciones que se
   // juntan) el dual tiene un pliegue en el que Newton se queda clavado. Un objetivo un poco
@@ -185,12 +201,14 @@ function resuelveEps(P, x0, { eps = 1e-6, q0 = null, tol = 1e-11, maxit = 200 } 
     const nx = Math.hypot(...x0) || 1e-9;
     q = Float64Array.from(x0, (v, i) => -5 * v / nx + 1e-3 * Math.cos(i));
   }
-  const h = (E, q) => -dot(q, x0) - (eps * dot(q, q)) / 4 + E.psi;
+  // con pesos W por fila: |y|²_W = max_p (-p·y - Σ p_i²/(4 W_i)); con p = ε q
+  const qWq = (q) => { let s = 0; for (let i = 0; i < n; i++) s += (q[i] * q[i]) / P.W[i]; return s; };
+  const h = (E, q) => -dot(q, x0) - (eps * qWq(q)) / 4 + E.psi;
   let E = evalua(P, q), hq = h(E, q), mu = 1e-3, it = 0;
   for (; it < maxit; it++) {
-    const grad = E.g.map((g, i) => g - x0[i] - (eps * q[i]) / 2);
+    const grad = E.g.map((g, i) => g - x0[i] - (eps * q[i]) / (2 * P.W[i]));
     if (Math.hypot(...grad) < tol) break;
-    const A = E.HG.map((fila, i) => fila.map((v, j) => -v + (i === j ? eps / 2 : 0)));
+    const A = E.HG.map((fila, i) => fila.map((v, j) => -v + (i === j ? eps / (2 * P.W[i]) : 0)));
     let acepta = false;
     while (mu < 1e12) {
       const d = resuelveSPD(A.map((fila, i) => fila.map((v, j) => v + (i === j ? mu : 0))), grad);
@@ -205,8 +223,9 @@ function resuelveEps(P, x0, { eps = 1e-6, q0 = null, tol = 1e-11, maxit = 200 } 
   }
   const residuo = x0.map((v, i) => v - E.g[i]);
   const bordes = [0, ...E.ts, Math.PI];
-  let L = 0; E.niveles.forEach((u, s) => { L += (bordes[s + 1] - bordes[s]) * u * u; });
-  const primal = dot(residuo, residuo) + eps * L;
+  let L = 0; E.niveles.forEach((u, s) => { L += (bordes[s + 1] - bordes[s]) * P.Lniv[P.U.indexOf(u)]; });
+  let cuad = 0; for (let i = 0; i < n; i++) cuad += P.W[i] * residuo[i] ** 2;
+  const primal = cuad + eps * L;
   return { q, ts: E.ts, niveles: E.niveles, residuo, brecha: primal - eps * hq, iter: it };
 }
 
