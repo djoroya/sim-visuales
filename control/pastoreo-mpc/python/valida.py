@@ -352,7 +352,7 @@ for k in range(int(T_TOTAL / DT)):
     zr, peso, centros = reduce(X, V, Y, W, centros)
     G, psi, gdir, asig = asigna(centros, peso, Y, asig)
     p = np.concatenate([zr, peso, G.ravel(order="F"), psi, gdir.ravel(order="F"),
-                        SEGv.ravel(order="F"), ACTv, SEGPv.ravel(order="F"), ACTPv, DMAPv, np.full(NP, mm.W_DET_NORMAL), OTRO_ACT.ravel(order="F") * float(os.environ.get("MOL", "1")), np.ones(NP), np.zeros(2 * NP), [0.0], [0.0]])
+                        SEGv.ravel(order="F"), ACTv, SEGPv.ravel(order="F"), ACTPv, DMAPv, np.full(NP, mm.W_DET_NORMAL), OTRO_ACT.ravel(order="F") * float(os.environ.get("MOL", "1")), np.ones(NP), np.zeros(2 * NP), [0.0], [0.0], np.ones(NP)])
     t0 = time.perf_counter(); u, f, ev = spg(u, p); ms.append(1000 * (time.perf_counter() - t0))
     acc = u.reshape(N_H, 2 * NP)[0] * A_MAX
     X, V, Y, W = avanza(X, V, Y, W, acc)

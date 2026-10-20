@@ -79,10 +79,19 @@ export function puntoDeRuta(rej, yx, yy, gx, gy, zonas, avance = 8) {
     });
     if (mejor < 0) break;
     ci += VEC[mejor][0]; cj += VEC[mejor][1];
-    if (!cortaPared(yx, yy, GX[ci], GY[cj], rej.seg) && rej.libre[idx(ci, cj)]) visto = [GX[ci], GY[cj]];
+    if (holgado(yx, yy, GX[ci], GY[cj], rej.seg) && rej.libre[idx(ci, cj)]) visto = [GX[ci], GY[cj]];
     if (md === 0) break;
   }
   return visto || [GX[ci], GY[cj]];
+}
+
+/** Recta sin cortar paredes ni rozar sus extremos (el perro se quedaría atascado en la esquina). */
+function holgado(x0, y0, x1, y1, seg) {
+  if (cortaPared(x0, y0, x1, y1, seg)) return false;
+  for (const [ax, ay, bx, by] of seg) {
+    if (distSegmento(ax, ay, [x0, y0, x1, y1]) < 3 || distSegmento(bx, by, [x0, y0, x1, y1]) < 3) return false;
+  }
+  return true;
 }
 
 /**

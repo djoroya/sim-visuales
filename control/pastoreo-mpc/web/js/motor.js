@@ -93,7 +93,7 @@ export class Motor {
     let enCaja = 0; for (const i of idx) { const x = this.X[2 * i], y = this.X[2 * i + 1]; if (x > x0 && x < x1 && y > y0 && y < y1) enCaja++; }
     // la maniobra de sacar sigue mientras queden ovejas dentro; la zanahoria se apaga solo
     // mientras la mayoría siga dentro
-    const sacando = !this.enCorral && enCaja >= 3;
+    const sacando = !this.enCorral && enCaja >= 1;
     this.mayoriaDentro = !this.enCorral && enCaja > idx.length / 2;
     const as = asigna(red.centros, red.peso, this.Y, this.previa, this.mapa, this.seg, this.corral, this.compromiso, this.obj,
       this.enCorral ? this.rejillaVerja : this.rejilla, sacando, this.suavizar ? this.suaves : null);

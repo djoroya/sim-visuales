@@ -127,11 +127,14 @@ def construir():
     seguir = ca.mtimes(wn.T, huber)
     radio = ca.sqrt(ca.sum1(wn * ((Xk[0::2, :] - ca.repmat(cmx, M, 1)) ** 2
                                   + (Xk[1::2, :] - ca.repmat(cmy, M, 1)) ** 2)) + 1.0)
+    # Acompañar (WC, por perro): 1 = trabaja con el rebaño (anillo de disponibilidad y guía
+    # que se relaja al llegar); 0 = independiente, p. ej. el que va a por las rezagadas.
+    WC = ca.MX.sym("wc", NP)
     cerca = 0; sx = 0; sy = 0
     for j in range(NP):
         ex = Yk[2 * j, :] - cmx; ey = Yk[2 * j + 1, :] - cmy
         dj = ca.sqrt(ex ** 2 + ey ** 2 + 1.0)
-        cerca = cerca + ca.sum2((ca.fmax(0, dj - (1.5 * radio + 60.0)) / 50.0) ** 2) / (N_H * NP)
+        cerca = cerca + WC[j] * ca.sum2((ca.fmax(0, dj - (1.5 * radio + 60.0)) / 50.0) ** 2) / (N_H * NP)
         sx = sx + ex / dj; sy = sy + ey / dj
     Dmed = ca.mtimes(wn.T, Dk)                                   # 1 x K_MAPA
     sxs, sys_ = sx[:, KS], sy[:, KS]
@@ -149,7 +152,7 @@ def construir():
     # por perro: el peso de la guía (WD) es un parámetro, para que quien asigna los roles
     # pueda reforzarla en maniobras precisas (cruzar una puerta) sin regenerar el código
     WD = ca.MX.sym("wd", NP)
-    detras = ca.mtimes(WD.T, ca.sum2((Yk[0::2, :] - BX) ** 2 + (Yk[1::2, :] - BY) ** 2) / 50.0 ** 2)
+    detras_j = WD * ca.sum2((Yk[0::2, :] - BX) ** 2 + (Yk[1::2, :] - BY) ** 2) / 50.0 ** 2     # NP x 1
     # Tránsito: un perro lejos de su puesto paga por meterse en la zona del rebaño (radio
     # del grupo + 40), para que rodee en vez de atravesar y empujar en mala dirección.
     lejos_p = 1 - ca.exp(-((Yk[0::2, :] - BX) ** 2 + (Yk[1::2, :] - BY) ** 2) / 40.0 ** 2)
@@ -187,10 +190,10 @@ def construir():
     disp_k = (radio ** 2 - 1.0) / 25.0 ** 2
     reunir = WREU * (ca.sum2(disp_k) / N_H + disp_k[-1])
     J = (reunir + suave + ca.sum2(seguir) / len(KS) + 2.0 * seguir[-1] + cerca + reparto + 0.2 * ca.sumsqr(U) / (N_H * NP)
-         + detras / (N_H * NP) * (1 - ca.exp(-(ca.mtimes(wn.T, Dk[:, 0]) / 40.0) ** 2))
+         + ca.mtimes(detras_j.T, WC * (1 - ca.exp(-(ca.mtimes(wn.T, Dk[:, 0]) / 40.0) ** 2)) + 1 - WC) / (N_H * NP)
          + W_TRANS * transito + W_MOL * molesta)
 
-    p = ca.vertcat(z0, w, ca.vec(GRP), PSI, ca.vec(GDIR), ca.vec(SEG), ACT, ca.vec(SEGP), ACTP, DMAP, WD, ca.vec(OTRO), WT, UPREV, WDU, WREU)
+    p = ca.vertcat(z0, w, ca.vec(GRP), PSI, ca.vec(GDIR), ca.vec(SEG), ACT, ca.vec(SEGP), ACTP, DMAP, WD, ca.vec(OTRO), WT, UPREV, WDU, WREU, WC)
     fJg = ca.Function("mpc_coste", [u, p], [J, ca.gradient(J, u)], ["u", "p"], ["J", "g"])
     # la simulación del modelo reducido, por si hiciera falta en el navegador
     return fJg, p.numel()

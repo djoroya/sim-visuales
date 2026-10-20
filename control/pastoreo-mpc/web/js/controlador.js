@@ -10,7 +10,7 @@ import { puntoDeRuta } from "./rutas.js";
 export async function cargaCoste(crearModulo) {
   const m = await crearModulo();
   if (m._mpc_init() !== 0) throw new Error("mpc_init");
-  const NPAR = NZ + M + M * NP + NP + 2 * NP + 4 * NSEG + NSEG + 4 * NSEGP + NSEGP + GX.length * GY.length + NP + NP * NP + NP + 2 * NP + 2;
+  const NPAR = NZ + M + M * NP + NP + 2 * NP + 4 * NSEG + NSEG + 4 * NSEGP + NSEGP + GX.length * GY.length + NP + NP * NP + NP + 2 * NP + 2 + NP;
   const pu = m._malloc(8 * NU), pp = m._malloc(8 * NPAR), pJ = m._malloc(8), pg = m._malloc(8 * NU);
   let evals = 0;
   return {
@@ -197,6 +197,8 @@ function maniobraSacar(centros, peso, Y, corral, rejilla, asig) {
   // el que entra: el que ya esté dentro y, si no, el más cercano a la puerta
   let j0 = -1;
   for (let j = 0; j < NP; j++) if (enCaja(Y[2 * j], Y[2 * j + 1])) { j0 = j; break; }
+  // si no, el que ya tenía asignado un grupo de dentro (el recogedor)
+  if (j0 < 0) for (let j = 0; j < NP; j++) { const ro = asig.roles[j]; if (ro && ro.recoge && enCaja(ro.cx, ro.cy)) { j0 = j; break; } }
   if (j0 < 0) { let bd = Infinity; for (let j = 0; j < NP; j++) { const d = Math.hypot(Y[2 * j] - (mx + 18 * nx), Y[2 * j + 1] - (my + 18 * ny)); if (d < bd) { bd = d; j0 = j; } } }
   const col = (j, punto, fuerte) => {
     for (let i = 0; i < M; i++) asig.G[i + M * j] = 0;
@@ -217,6 +219,7 @@ function maniobraSacar(centros, peso, Y, corral, rejilla, asig) {
   // papel sea también entrar en el corral: entonces esperan.
   let Wd = 0, Wt = 0; for (let i = 0; i < M; i++) if (peso[i] > 0.5) { Wt += peso[i]; if (dentro.includes(i)) Wd += peso[i]; }
   const mayoriaDentro = Wd > Wt / 2;
+  asig.wc[j0] = mayoriaDentro ? 1 : 0;       // rezagadas dentro: el que entra va por libre
   const esperas = [[mx + 70 * nx + 45 * tx, my + 70 * ny + 45 * ty], [mx + 70 * nx - 45 * tx, my + 70 * ny - 45 * ty]];
   const otros = []; for (let j = 0; j < NP; j++) if (j !== j0) otros.push(j);
   const d = (j, e) => Math.hypot(Y[2 * j] - e[0], Y[2 * j + 1] - e[1]);
@@ -251,12 +254,25 @@ export function asigna(centros, peso, Y, previa, mapa, seg, corral = null, compr
   // suelta y dejaría al rebaño sin empuje.
   const tam = grupos.map((g) => g.reduce((a, i) => a + peso[i], 0)), total = tam.reduce((a, b) => a + b, 0);
   const grande = (gi) => tam[gi] >= Math.max(4, 0.1 * total);
-  if (orden.some(grande)) orden = orden.filter(grande);
-  // Un líder y flancos: un perro por grupo grande, por prioridad, justo detrás; los que
-  // sobran, a los flancos del principal, abiertos (±63°) y algo más lejos: contienen por
-  // los lados sin empujar en otra dirección ni estorbar al que lleva la iniciativa.
+  // Recogedor: con tres perros, uno va a por las rezagadas (el grupo pequeño más prioritario)
+  // y el grueso se queda con líder y un flanco. Si el grueso ya ha llegado (su centro a
+  // menos de su radio del destino), las rezagadas pasan delante.
+  // Solo cuentan como rezagadas las que no van a llegar con el grueso: lejos de él (más de
+  // su radio + 60) o con una pared en medio.
+  const grandes = orden.filter(grande);
+  const g0 = grandes[0], cr = grandes.length ? centroRadio(centros, peso, grupos[g0]) : null;
+  const pequenos = orden.filter((gi) => !grande(gi) && cr && (Math.hypot(cent[gi][0] - cr.cx, cent[gi][1] - cr.cy) > cr.R + 60
+    || cortaPared(cent[gi][0], cent[gi][1], cr.cx, cr.cy, seg)));
+  if (grandes.length && pequenos.length) {
+    const llegado = muestrea(mapa.D, cr.cx, cr.cy) < cr.R;
+    orden = llegado ? [...pequenos, ...grandes] : NP >= 3 ? [...grandes.slice(0, NP - 1), pequenos[0]] : grandes;
+  } else if (grandes.length) orden = grandes;
+  // Un líder y flancos: un perro por grupo, por prioridad, justo detrás; los que sobran, a
+  // los flancos del principal, abiertos (±63°) y algo más lejos: contienen por los lados sin
+  // empujar en otra dirección ni estorbar al que lleva la iniciativa.
   const slots = orden.slice(0, NP).map((gi) => [gi, 0.0]);
-  for (const e of [[orden[0], -1.1], [orden[0], 1.1], [orden[0], -1.5], [orden[0], 1.5]]) {
+  const principal = grandes.length ? grandes[0] : orden[0];
+  for (const e of [[principal, -1.1], [principal, 1.1], [principal, -1.5], [principal, 1.5]]) {
     if (slots.length >= NP) break;
     slots.push(e);
   }
@@ -295,6 +311,8 @@ export function asigna(centros, peso, Y, previa, mapa, seg, corral = null, compr
   // otro[j + NP*k] = 1 si el perro k lleva un grupo distinto del de j (orden columna)
   const otro = new Float64Array(NP * NP);
   const wt = new Float64Array(NP).fill(1);    // peso del tránsito de cada perro
+  // acompañar al rebaño (1) o ir por libre (0): el recogedor no paga por alejarse del grueso
+  const wc = new Float64Array(NP).fill(1);
   mejor.forEach((i, j) => mejor.forEach((i2, k) => { if (j !== k && slots[i][0] !== slots[i2][0]) otro[j + NP * k] = MOLESTAR.activo ? 1 : 0; }));
   const roles = [], enRuta = [];
   mejor.forEach((i, j) => {
@@ -342,9 +360,10 @@ export function asigna(centros, peso, Y, previa, mapa, seg, corral = null, compr
         wd[j] = 10 * W_DET_NORMAL; wt[j] = 0; enRuta.push(j);
       }
     }
-    roles.push({ cr: { cx, cy, R }, cx, cy, rg: r, grupo: gi, psi: ps, arco: !!wp, destino: wp || dest });
+    if (grandes.length && !grande(gi)) wc[j] = 0;
+    roles.push({ cr: { cx, cy, R }, cx, cy, rg: r, grupo: gi, psi: ps, arco: !!wp, destino: wp || dest, recoge: !wc[j] });
   });
-  if (sacando && corral) maniobraSacar(centros, peso, Y, corral, rejilla, { G, psi, gdir, wd, wt, otro, roles });
+  if (sacando && corral) maniobraSacar(centros, peso, Y, corral, rejilla, { G, psi, gdir, wd, wt, otro, roles, wc });
   // compromiso: el perro que lleva un grupo encerrado (pared entre el grupo y el destino)
   // lo mantiene mientras siga encerrado, aunque cambien las prioridades
   const encerrado = (gi) => corral && obj && cortaPared(cent[gi][0], cent[gi][1], obj[0], obj[1], corral.seg);
@@ -371,7 +390,7 @@ export function asigna(centros, peso, Y, previa, mapa, seg, corral = null, compr
   }
   // el que sigue una ruta no evita zonas en el MPC: ya lo hace el planificador
   for (const j of enRuta) for (let q = 0; q < NP; q++) otro[j + NP * q] = 0;
-  return { compromiso: nuevoCompromiso, G, psi, gdir, wd, otro, wt, previa: mejor.map((i) => [pts[i].px, pts[i].py]), roles, nGrupos: grupos.length };
+  return { compromiso: nuevoCompromiso, G, psi, gdir, wd, otro, wt, wc, previa: mejor.map((i) => [pts[i].px, pts[i].py]), roles, nGrupos: grupos.length };
 }
 
 /** Vector de parámetros en el orden de modelo_mpc.py. */
@@ -380,7 +399,7 @@ export function empaqueta(NPAR, red, Y, W, asig, segv, actv, segpv, actpv, mapaD
   const pon = (arr) => { p.set(arr, o); o += arr.length; };
   pon(red.centros); pon(red.Vc); pon(Y); pon(W);                // z0
   pon(red.peso); pon(asig.G); pon(asig.psi); pon(asig.gdir);
-  pon(segv); pon(actv); pon(segpv); pon(actpv); pon(mapaD); pon(asig.wd); pon(asig.otro); pon(asig.wt); pon(uprev); pon([wdu]); pon([wreu]);
+  pon(segv); pon(actv); pon(segpv); pon(actpv); pon(mapaD); pon(asig.wd); pon(asig.otro); pon(asig.wt); pon(uprev); pon([wdu]); pon([wreu]); pon(asig.wc);
   if (o !== NPAR) throw new Error(`parámetros: ${o} != ${NPAR}`);
   return p;
 }
