@@ -1,4 +1,4 @@
-import crear from "../mpc.mjs";
+import crear from "../mpc.js";
 import { cargaCoste } from "../js/controlador.js";
 import { Motor, corral } from "../js/motor.js";
 import { avanza } from "../js/planta.js";

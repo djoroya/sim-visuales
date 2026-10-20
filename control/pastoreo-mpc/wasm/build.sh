@@ -7,7 +7,7 @@ PY=../../../.venv/bin/python
 $PY ../python/genera_c.py
 gcc -O3 -ffast-math -fPIC -shared mpc_coste.c -o libmpc.so -lm
 source ~/emsdk/emsdk_env.sh > /dev/null 2>&1
-emcc -O3 -ffast-math mpc_coste.c envoltorio.c -o ../web/mpc.mjs \
+emcc -O3 -ffast-math mpc_coste.c envoltorio.c -o ../web/mpc.js \
   -s MODULARIZE=1 -s EXPORT_ES6=1 -s ALLOW_MEMORY_GROWTH=1 -s ENVIRONMENT=web,worker,node \
   -s "EXPORTED_FUNCTIONS=['_mpc_init','_mpc_eval','_malloc','_free']" \
   -s "EXPORTED_RUNTIME_METHODS=['HEAPF64']"

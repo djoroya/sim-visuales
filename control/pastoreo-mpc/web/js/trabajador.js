@@ -4,7 +4,7 @@
 // reproduce y avisa de cuáles ha consumido. Guarda el estado al final de cada intervalo:
 // cuando llega un destino nuevo, vuelve al intervalo que se está viendo y recalcula desde
 // ahí, de modo que una orden se nota al momento aunque haya trabajo calculado por delante.
-import crear from "../mpc.mjs";
+import crear from "../mpc.js";
 import { cargaCoste } from "./controlador.js";
 import { Motor, corral } from "./motor.js";
 

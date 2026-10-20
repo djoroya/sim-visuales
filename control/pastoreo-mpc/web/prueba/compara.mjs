@@ -2,7 +2,7 @@
 // mapa de distancias, un intervalo de la planta, los parámetros que se mandan al coste
 // y la decisión del resolvedor.   node web/prueba/compara.mjs tmp/traza_<esc>_<s>.json
 import fs from "node:fs";
-import crear from "../mpc.mjs";
+import crear from "../mpc.js";
 import { geodesica, gradiente } from "../js/mapa.js";
 import { avanza } from "../js/planta.js";
 import { cargaCoste, reduce, asigna, empaqueta, paredesParametro, spg } from "../js/controlador.js";

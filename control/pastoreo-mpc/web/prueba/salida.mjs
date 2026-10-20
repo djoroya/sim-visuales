@@ -1,6 +1,6 @@
 // Prueba reproducible de «sacar el rebaño del corral»: 80 ovejas dentro, perros fuera y un
 // destino fuera, todo al azar según la semilla.   node web/prueba/salida.mjs <semilla> [escenario]
-import crear from "../mpc.mjs";
+import crear from "../mpc.js";
 import { cargaCoste } from "../js/controlador.js";
 import { Motor, corral } from "../js/motor.js";
 

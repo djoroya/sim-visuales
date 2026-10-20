@@ -1,7 +1,7 @@
 // Lazo cerrado completo en Node desde el estado inicial de una traza de Python.
 //   node web/prueba/lazo.mjs tmp/traza_<esc>_<s>.json
 import fs from "node:fs";
-import crear from "../mpc.mjs";
+import crear from "../mpc.js";
 import { cargaCoste } from "../js/controlador.js";
 import { Motor } from "../js/motor.js";
 import { MOLESTAR } from "../js/controlador.js";
