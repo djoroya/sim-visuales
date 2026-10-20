@@ -4,17 +4,19 @@
 //   q maximiza h(q) = -q·x0 - ε|q|²/4 + ∫ψ(q·D)  (cóncava), con Newton regularizado.
 // D(τ) = 2/π [cos(Ea τ); sin(Eb τ)] en [0, π]; simetría de media onda u(τ+π) = -u(τ).
 
-const NM = 2000;                       // muestras para localizar las conmutaciones
+import { crucesTrig } from "./raices.js";
+
+const NM = 2000;                       // muestras para localizar las conmutaciones (método muestreado)
 
 /** Prepara un problema: harmónicos (Ea: cosenos, Eb: senos) y niveles (ordenados). */
-export function problema(Ea, Eb, U) {
+export function problema(Ea, Eb, U, { exacto = false } = {}) {
   U = [...U].sort((a, b) => a - b);
   const c = U.slice(0, -1).map((u, k) => u + U[k + 1]);       // umbrales de -m
   const H = [...Ea, ...Eb], n = H.length, na = Ea.length;
   // D en la rejilla de muestras, por filas
   const tau = Float64Array.from({ length: NM + 1 }, (_, i) => (Math.PI * i) / NM);
   const Dm = H.map((h, r) => tau.map((t) => (2 / Math.PI) * (r < na ? Math.cos(h * t) : Math.sin(h * t))));
-  return { Ea, Eb, U, c, H, n, na, tau, Dm };
+  return { Ea, Eb, U, c, H, n, na, tau, Dm, exacto };
 }
 
 const D = (P, t) => P.H.map((h, r) => (2 / Math.PI) * (r < P.na ? Math.cos(h * t) : Math.sin(h * t)));
@@ -29,6 +31,38 @@ function nivel(P, m) {
 
 /** Conmutaciones de u_q en [0, π] y nivel (valor) de cada tramo. */
 export function conmutaciones(P, q) {
+  return P.exacto ? conmutacionesExactas(P, q) : conmutacionesMuestreadas(P, q);
+}
+
+/**
+ * Sin muestrear: para cada umbral, las raíces de m(τ) + c_k como polinomio en z = e^{iτ}
+ * (raices.js). Luego el nivel de cada tramo en su punto medio y se funden los tramos
+ * contiguos con el mismo nivel (una raíz doble, en el instante en que nace un pulso, no
+ * cambia de nivel).
+ */
+export function conmutacionesExactas(P, q) {
+  if (!P.armonicos) {
+    const Hs = [...new Set(P.H)].sort((a, b) => a - b);
+    P.armonicos = Hs;
+    P.cache = P.c.map(() => ({}));
+  }
+  const Hs = P.armonicos, alfa = new Float64Array(Hs.length), beta = new Float64Array(Hs.length);
+  P.H.forEach((h, r) => { const i = Hs.indexOf(h); if (r < P.na) alfa[i] += (2 / Math.PI) * q[r]; else beta[i] += (2 / Math.PI) * q[r]; });
+  let ts = [];
+  P.c.forEach((c, kk) => { ts.push(...crucesTrig(Hs, alfa, beta, c, P.cache[kk])); });
+  ts.sort((a, b) => a - b);
+  const mf = (t) => dot(q, D(P, t));
+  const bordes = [0, ...ts, Math.PI], niveles = [], cortes = [];
+  for (let s = 0; s < bordes.length - 1; s++) {
+    const u = P.U[nivel(P, mf(0.5 * (bordes[s] + bordes[s + 1])))];
+    if (niveles.length && u === niveles[niveles.length - 1]) continue;   // mismo nivel: no hay conmutación
+    if (niveles.length) cortes.push(bordes[s]);
+    niveles.push(u);
+  }
+  return { ts: cortes, niveles };
+}
+
+function conmutacionesMuestreadas(P, q) {
   const { tau, Dm, n } = P;
   const m = new Float64Array(NM + 1);
   for (let r = 0; r < n; r++) { const fila = Dm[r], qr = q[r]; if (qr) for (let i = 0; i <= NM; i++) m[i] += qr * fila[i]; }

@@ -13,7 +13,7 @@ function ajusta() {
 }
 const $ = (id) => document.getElementById(id);
 const CANDIDATOS = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25];
-const M_MAX = 1.25, FILAS = 101;
+const M_MIN = 0.01, M_MAX = 1.25, FILAS = 101;
 
 const estado = { elim: new Set([5, 7, 11, 13]), nU: 5, m: 0.8, P: null, q: null, sol: null, ms: 0, mapa: null, barrido: null };
 
@@ -47,32 +47,68 @@ function resuelveActual() {
 }
 
 // Mapa: la onda (en medio periodo) para cada amplitud, calculado por trozos para no bloquear.
+// Mapa: la onda (en medio periodo) para cada amplitud. Primero una rejilla gruesa y luego se
+// refina donde cambia la estructura (nace o muere un pulso, o se acaba la solución) hasta
+// localizar el cambio a 2·10⁻⁴; entre dos filas con la misma estructura los ángulos varían
+// de forma suave y se dibujan como trapecios (interpolación lineal), no como píxeles.
+// Se calcula por trozos para no bloquear la página.
+const estructura = (f) => (f.ok ? f.niveles.join(",") : "x");
+// Sin rescates salvo que se pidan: detectar «sin solución» no los necesita y son lo caro.
+function fila(m, q0, rescate = false) {
+  let r = resuelve(estado.P, objetivo(m), { q0, sinRescate: !rescate });
+  if (!factible(r) && q0) { const r2 = resuelve(estado.P, objetivo(m), { sinRescate: !rescate }); if (factible(r2)) r = r2; }
+  return { m, ts: r.ts, niveles: r.niveles, ok: factible(r), q: factible(r) ? r.q : null };
+}
 function calculaMapa() {
   const id = Symbol(); estado.mapaId = id;
-  const filas = []; let q = null, i = 0;
+  const filas = []; let i = 0, refinando = 0, terminado = false;
   const paso = () => {
     if (estado.mapaId !== id) return;
     const t0 = performance.now();
-    while (i < FILAS && performance.now() - t0 < 12) {
-      const m = (M_MAX * i) / (FILAS - 1);
-      let r = resuelve(estado.P, objetivo(m), { q0: q });
-      if (!factible(r) && q) { const r2 = resuelve(estado.P, objetivo(m)); if (factible(r2)) r = r2; }
-      filas.push({ m, ts: r.ts, niveles: r.niveles, ok: factible(r) });
-      q = factible(r) ? r.q : null; i++;
+    while (performance.now() - t0 < 12) {
+      if (i < FILAS) {                                       // rejilla gruesa
+        // desde 0,01: al tender a 0 los pulsos se estrechan sin fin y el problema degenera
+        const m = M_MIN + ((M_MAX - M_MIN) * i) / (FILAS - 1);
+        filas.push(fila(m, filas.length ? filas[filas.length - 1].q : null)); i++;
+        if (i === FILAS) {                                   // huecos sueltos: con rescate
+          const ultimoOk = filas.map((f) => f.ok).lastIndexOf(true);
+          for (let j = 0; j < ultimoOk; j++) if (!filas[j].ok) filas[j] = fila(filas[j].m, j ? filas[j - 1].q : null, true);
+        }
+        continue;
+      }
+      // refinamiento: el primer par contiguo con estructura distinta y aún separado
+      let k = refinando;
+      while (k < filas.length - 1 && (estructura(filas[k]) === estructura(filas[k + 1]) || filas[k + 1].m - filas[k].m < 2e-4)) k++;
+      if (k >= filas.length - 1) { terminado = true; break; }
+      refinando = k;
+      const A = filas[k], B = filas[k + 1], mm = (A.m + B.m) / 2;
+      let nf = fila(mm, A.q || B.q);
+      if (!nf.ok && filas.slice(k + 1).some((f) => f.ok)) nf = fila(mm, A.q || B.q, true);
+      filas.splice(k + 1, 0, nf);
     }
-    estado.mapa = { filas, completo: i >= FILAS };
+    const completo = terminado;
+    estado.mapa = { filas, completo };
     dibuja();
-    if (i < FILAS) requestAnimationFrame(paso);
+    if (!completo) requestAnimationFrame(paso);
   };
   paso();
 }
 
 // ---- dibujo ----
+// Color de cada nivel: escalones bien separados. Positivos: azul verdoso -> verde -> amarillo
+// -> ámbar (el máximo); negativos: azules; el 0, casi el fondo. Así 7 y 9 niveles se distinguen.
+const RAMPA_POS = [[47, 111, 143], [63, 178, 127], [201, 194, 58], [245, 158, 11]];
+const RAMPA_NEG = [[38, 74, 120], [79, 155, 232], [169, 208, 255]];
+function rampa(stops, a) {                       // a en (0, 1]: el último tope es a = 1
+  const x = Math.max(0, Math.min(1, a)) * (stops.length - 1) - 0, i = Math.min(stops.length - 2, Math.floor(x)), f = x - i;
+  return stops[i].map((v, j) => Math.round(v + f * (stops[i + 1][j] - v)));
+}
 const colorNivel = (u) => {
-  // divergente: azul (negativo) - fondo (0) - ámbar (positivo)
-  const a = Math.min(1, Math.abs(u)), [r0, g0, b0] = [26, 52, 90];
-  const [r1, g1, b1] = u >= 0 ? [245, 158, 11] : [79, 155, 232];
-  return `rgb(${Math.round(r0 + a * (r1 - r0))},${Math.round(g0 + a * (g1 - g0))},${Math.round(b0 + a * (b1 - b0))})`;
+  if (Math.abs(u) < 1e-9) return "rgb(26,52,90)";
+  // los niveles positivos 1/k ... 1 se reparten por toda la rampa
+  const npos = (estado.P.U.length - 1) / 2, k = Math.round(Math.abs(u) * npos), a = npos > 1 ? (k - 1) / (npos - 1) : 1;
+  const [r, g, b] = rampa(u > 0 ? RAMPA_POS : RAMPA_NEG, a);
+  return `rgb(${r},${g},${b})`;
 };
 
 function texto(s, x, y, { color = C.suave, size = 22, align = "left", bold = false } = {}) {
@@ -127,21 +163,33 @@ function panelEspectro(x0, y0, w, h) {
 function panelMapa(x0, y0, w, h) {
   texto(W >= 1000 ? "Todas las soluciones: la onda en medio periodo para cada amplitud" : "Todas las soluciones (medio periodo)", x0, y0 - 12, { color: C.texto, bold: true });
   const mp = estado.mapa; if (!mp) return;
-  const fh = h / FILAS;
-  mp.filas.forEach((f, i) => {
-    const y = y0 + h - (i + 1) * fh, bordes = [0, ...f.ts, Math.PI];
-    if (!f.ok) { ctx.fillStyle = "#1c2a40"; ctx.fillRect(x0, y, w, fh + 0.5); return; }
-    f.niveles.forEach((u, k) => {
-      ctx.fillStyle = colorNivel(u);
-      ctx.fillRect(x0 + (bordes[k] / Math.PI) * w, y, ((bordes[k + 1] - bordes[k]) / Math.PI) * w + 0.5, fh + 0.5);
-    });
-  });
-  // primera amplitud inalcanzable
-  const lim = mp.filas.find((f) => !f.ok);
+  const X = (t) => x0 + (t / Math.PI) * w, Y = (m) => y0 + h - (m / M_MAX) * h;
+  ctx.fillStyle = "#1c2a40"; ctx.fillRect(x0, y0, w, h);                 // sin solución: el fondo
+  // Cada tramo de filas seguidas con la misma estructura se dibuja como un polígono por nivel
+  // (borde izquierdo subiendo, derecho bajando): sin costuras entre filas. El tramo se alarga
+  // hasta la fila siguiente, que está a menos de 2·10⁻⁴ (el cambio ya está localizado).
+  const F = mp.filas;
+  for (let i0 = 0; i0 < F.length; ) {
+    let i1 = i0; while (i1 + 1 < F.length && estructura(F[i1 + 1]) === estructura(F[i0])) i1++;
+    if (F[i0].ok) {
+      const filas = F.slice(i0, i1 + 1), techo = i1 + 1 < F.length ? F[i1 + 1].m : F[i1].m;
+      const bordes = filas.map((f) => [0, ...f.ts, Math.PI]);
+      filas[0].niveles.forEach((u, k) => {
+        ctx.fillStyle = colorNivel(u); ctx.beginPath();
+        filas.forEach((f, j) => { const x = X(bordes[j][k]) - 0.3, y = Y(f.m); j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        // un píxel de solape con el tramo de encima: sin raya de suavizado en el borde común
+        ctx.lineTo(X(bordes[bordes.length - 1][k]) - 0.3, Y(techo) - 1); ctx.lineTo(X(bordes[bordes.length - 1][k + 1]) + 0.3, Y(techo) - 1);
+        for (let j = filas.length - 1; j >= 0; j--) ctx.lineTo(X(bordes[j][k + 1]) + 0.3, Y(filas[j].m));
+        ctx.closePath(); ctx.fill();
+      });
+    }
+    i0 = i1 + 1;
+  }
+  const iu = mp.filas.findIndex((f, k) => !f.ok && mp.filas.slice(k).every((g) => !g.ok)), lim = iu >= 0 ? mp.filas[iu] : null;
   if (lim && mp.completo) {
-    const y = y0 + h - (mp.filas.indexOf(lim) / FILAS) * h;          // borde inferior de la zona sin solución
+    const y = Y((lim.m + mp.filas[iu - 1].m) / 2);                      // borde inferior de la zona sin solución
     ctx.strokeStyle = C.rojo; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x0 + w, y); ctx.stroke();
-    texto(`sin solución por encima de ${lim.m.toFixed(2)}` + (W >= 1000 ? " (franja oscura)" : ""), x0 + w / 2, y0 + h + 22, { size: 18, align: "center", color: C.rojo });
+    texto(`sin solución por encima de ${((lim.m + mp.filas[iu - 1].m) / 2).toFixed(3)}` + (W >= 1000 ? " (franja oscura)" : ""), x0 + w / 2, y0 + h + 22, { size: 18, align: "center", color: C.rojo });
   }
   // amplitud actual
   const ym = y0 + h - (estado.m / M_MAX) * h;
@@ -201,4 +249,10 @@ $("barre").onclick = () => {
   estado.barrido = requestAnimationFrame(paso);
 };
 addEventListener("resize", () => dibuja());
+// enlace a un caso: ?niveles=7&m=0.6
+{
+  const par = new URLSearchParams(location.search), n = +par.get("niveles"), m = parseFloat(par.get("m"));
+  if ([3, 5, 7, 9].includes(n)) { estado.nU = n; $("niveles").value = String(n); }
+  if (m >= 0 && m <= M_MAX) { estado.m = m; $("m").value = m; $("mval").textContent = m.toFixed(2); }
+}
 configura();

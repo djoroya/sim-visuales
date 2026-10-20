@@ -14,8 +14,10 @@ conmutaciones se calculan de forma exacta y Newton converge en pocas iteraciones
 | `python/clasico.py <m>` | Frente al método clásico: todas las secuencias de niveles, Newton desde arranques al azar |
 | `python/referencia.py` | Casos de referencia para la versión JavaScript (`tmp/referencia.json`) |
 | `python/figuras_post.py <salida>` | Figuras del artículo |
-| `web/` | Visor en el navegador (JavaScript puro): `js/she.js` es el resolvedor |
+| `web/` | Visor en el navegador (JavaScript puro): `js/she.js` es el resolvedor; `js/raices.js`, las conmutaciones exactas (raíces de m(τ) + c como polinomio en z = e^{iτ}, sin muestrear) |
 | `web/prueba/compara.mjs` | JavaScript frente a Python |
+| `web/prueba/banco.mjs` | Banco de pruebas, formulación clásica de tres niveles, N = 5…25: Newton desde ángulos al azar, enjambre de partículas + Newton (parámetros de Chen et al., 2026) y el dual en frío y en caliente |
+| `web/prueba/continuacion.mjs` | Seguir una solución al variar la amplitud: Newton por continuación frente al dual en caliente |
 
 ```bash
 ../../.venv/bin/python python/compara_ipopt.py
@@ -32,3 +34,7 @@ Resultados (5 armónicos: 1, 5, 7, 11, 13, con seno y coseno):
   crece como 1/ε.
 - Número par de niveles: la penalización es plana entre los dos niveles centrales y, para
   amplitudes pequeñas, el óptimo deja de ser escalonado.
+- Banco (misma máquina): con N ≤ 9 ángulos, Newton desde ángulos al azar es lo más rápido; con
+  N = 17 y 25 no encuentra solución en 20 s, y el dual las encuentra todas en 0,1–0,6 s con el
+  número mínimo de ángulos. Para seguir una solución al variar la amplitud, Newton por
+  continuación es de 50 a 200 veces más rápido: la combinación es dual + Newton.

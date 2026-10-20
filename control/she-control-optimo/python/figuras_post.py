@@ -27,6 +27,27 @@ def x0_de(m):
     x0 = np.zeros(10); x0[5] = m; return x0
 
 
+# misma paleta que el visor (web/js/app.js): escalones bien separados por nivel
+RAMPA_POS = np.array([[47, 111, 143], [63, 178, 127], [201, 194, 58], [245, 158, 11]]) / 255
+RAMPA_NEG = np.array([[38, 74, 120], [79, 155, 232], [169, 208, 255]]) / 255
+CERO = np.array([26, 52, 90]) / 255
+
+
+def rampa(stops, a):
+    x = np.clip(a, 0, 1) * (len(stops) - 1); i = min(len(stops) - 2, int(np.floor(x))); f = x - i
+    return stops[i] + f * (stops[i + 1] - stops[i])
+
+
+def colorea(img, nU):
+    """Imagen de niveles -> RGB; NaN (sin solución) transparente."""
+    npos = (nU - 1) / 2; out = np.zeros(img.shape + (4,))
+    for u in np.linspace(-1, 1, nU):
+        k = round(abs(u) * npos); a = (k - 1) / (npos - 1) if npos > 1 else 1.0
+        col = CERO if abs(u) < 1e-9 else rampa(RAMPA_POS if u > 0 else RAMPA_NEG, a)
+        out[np.isclose(img, u)] = [*col, 1]
+    return out
+
+
 def mapa(nU, ms):
     """Onda en [0, π] para cada amplitud, en una rejilla de imagen; None si no hay solución."""
     U = np.linspace(-1, 1, nU); tau = np.linspace(0, np.pi, 900); img = np.full((len(ms), len(tau)), np.nan); q = None; lim = None
@@ -50,7 +71,7 @@ def fig_mapa():
     fig, ejes = plt.subplots(1, 3, figsize=(11, 3.9), dpi=130, facecolor=NAVY, sharey=True)
     for ax, nU in zip(ejes, [3, 5, 7]):
         img, lim = mapa(nU, ms); estilo(ax)
-        ax.imshow(img, origin="lower", aspect="auto", extent=[0, 180, 0, 1.25], cmap=CMAP, vmin=-1, vmax=1, interpolation="nearest")
+        ax.imshow(colorea(img, nU), origin="lower", aspect="auto", extent=[0, 180, 0, 1.25], interpolation="nearest")
         if lim: ax.axhspan(lim, 1.25, color="#0a1628"); ax.axhline(lim, color=ROJO, lw=1.2); ax.text(90, (lim + 1.25) / 2, f"sin solución (> {lim:.2f})", color=ROJO, ha="center", va="center", fontsize=8.5)
         ax.set_title(f"{nU} niveles (0, " + ", ".join(f"±{u:.2f}".rstrip("0").rstrip(".") for u in np.linspace(-1, 1, nU) if u > 0) + ")", color=SU, fontsize=10)
         ax.set_xlabel("ángulo en el semiperiodo (°)"); ax.set_xticks([0, 45, 90, 135, 180])
