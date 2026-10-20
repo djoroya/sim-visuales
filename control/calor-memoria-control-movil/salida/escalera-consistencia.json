@@ -1,0 +1,10 @@
+{
+ "n": 14,
+ "N": 20,
+ "max_y": 0.9132889650634288,
+ "senos_vs_matriz_y": 3.3306690738754696e-16,
+ "senos_vs_matriz_z": 1.8041124150158794e-16,
+ "casadi_vs_numpy_y": 2.8312768796112664e-13,
+ "casadi_vs_numpy_z": 4.682365606356598e-14,
+ "casadi_vs_numpy_d": 0.0
+}
