@@ -68,7 +68,7 @@ export function useSimulacion() {
   const reinicia = useCallback((dia) => {
     const st = s.current; if (!st.clima) return;
     // ?hora=13: empieza a esa hora (para enlazar o capturar un momento concreto)
-    const hora = +(new URLSearchParams(location.search).get("hora") || 0);
+    const hora = +(new URLSearchParams(location.search).get("hora") ?? 10);   // por defecto, a media mañana
     st.t = dia * 86400 + hora * 3600; st.inicio = st.t; st.y = estadoInicial(st.clima, st.t); st.historial = [];
     st.cultivo = []; st.energia = { calor: 0, gas: 0, electrica: 0, co2: 0 }; st.racimos = []; st.gdNuevo = RACIMOS.cadaGD; st.frutoAnterior = st.y[15];
     // un primer paso para tener flujos que dibujar

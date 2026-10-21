@@ -124,8 +124,8 @@ export default function App() {
   const sim = useSimulacion();
   // ?pieza=aire abre el panel de esa pieza (para enlazar desde el texto del artículo)
   const [seleccion, setSeleccion] = useState(() => new URLSearchParams(location.search).get("pieza"));
-  // ?vista=3d abre la vista 3D
-  const [vista3d, setVista3d] = useState(() => new URLSearchParams(location.search).get("vista") === "3d");
+  // por defecto, la vista 3D; ?vista=piezas (o ?pieza=…) abre el diagrama de piezas
+  const [vista3d, setVista3d] = useState(() => { const q = new URLSearchParams(location.search); return q.get("vista") !== "piezas" && !q.get("pieza"); });
   const { vista, ajustes, setAjustes } = sim;
   const cambia = (k) => (e) => setAjustes((a) => ({ ...a, [k]: e.target.type === "checkbox" ? e.target.checked : +e.target.value }));
   return (
