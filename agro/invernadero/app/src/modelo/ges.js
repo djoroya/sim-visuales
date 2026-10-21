@@ -63,6 +63,13 @@ export function creaClima(tiempo) {
   return clima;
 }
 
+/** Lo que gastan los actuadores en el instante t: calor de la calefacción (W) e inyección de CO₂ (kg/s). */
+export function actuadores(t, y, aj = AJUSTES) {
+  const Q_calef = aj.calefaccion ? aj.P_calef * Math.min(Math.max(aj.T_sp_calef - y[1], 0), 1) : 0;
+  const hora = Math.floor(t / 3600) + 1, hd = (hora / 24 - Math.floor(hora / 24)) * 24;
+  return [Q_calef, hd > 6 && hd < 20 ? aj.added_CO2 / 3600 : 0];
+}
+
 export function estadoInicial(clima, t0 = 0) {
   const c = clima(t0), T0 = c[0] + T_k;
   return Float64Array.from([20 + T_k, 12 + T_k, 12 + T_k, 12 + T_k, 12 + T_k, 12 + T_k, 12 + T_k, 12 + T_k, 12 + T_k, 11 + T_k, 12 + T_k, 0,

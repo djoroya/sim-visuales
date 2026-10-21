@@ -1,7 +1,7 @@
 // La simulación: el modelo avanza en tiempo real (pasos de 60 s con el integrador implícito),
 // guarda una muestra cada 10 minutos y expone el estado y los flujos del último paso.
 import { useEffect, useRef, useState, useCallback } from "react";
-import { creaClima, estadoInicial, derivadas, AJUSTES } from "./modelo/ges.js";
+import { creaClima, estadoInicial, derivadas, actuadores, AJUSTES } from "./modelo/ges.js";
 import { pasoROS2 } from "./modelo/integrador.js";
 
 const T_K = 273.15, PASO = 60, MUESTRA = 600, DIAS_HISTORIAL = 4, DIAS_CULTIVO = 130;
@@ -10,6 +10,18 @@ const T_K = 273.15, PASO = 60, MUESTRA = 600, DIAS_HISTORIAL = 4, DIAS_CULTIVO =
 // Lo que crece C_fruit se reparte entre los racimos que aún engordan; cada racimo cuenta los
 // grados-día (base 0 °C, con la temperatura de las hojas) desde que nace, y madura de verde a rojo
 // entre 750 y 1000 °C·día. Sale un racimo nuevo cada 140 °C·día (uno por semana a 20 °C).
+// Energía: el modelo da el calor que entra al aire; cómo se produce lo elige el visor.
+//   caldera de gas: gas = calor / 0,90; eléctrica = bomba de circulación, 1,5 % del calor
+//   bomba de calor: eléctrica = calor / COP, con COP = 2 + 0,1·T_ext (entre 1,5 y 4,5)
+export const EQUIPOS = { caldera: "caldera de gas", bomba: "bomba de calor" };
+export const cop = (T_ext) => Math.min(Math.max(2 + 0.1 * T_ext, 1.5), 4.5);
+function acumulaEnergia(st, aj, t, y) {
+  const [Q, co2] = actuadores(t, y, aj), e = st.energia, kWh = (Q * PASO) / 3.6e6;
+  e.calor += kWh; e.co2 += co2 * PASO;
+  if (aj.equipo === "bomba") e.electrica += kWh / cop(st.clima(t)[0]);
+  else { e.gas += kWh / 0.9; e.electrica += 0.015 * kWh; }
+}
+
 export const RACIMOS = { cadaGD: 140, engordaHasta: 800, maduraDesde: 750, maduroEn: 1000 };
 function actualizaRacimos(st) {
   const y = st.y, dt = MUESTRA / 86400, gd = Math.max(y[2] - T_K, 0) * dt;
@@ -37,7 +49,7 @@ export function useSimulacion() {
   // ?calefaccion=1&co2=5&inicio=15&velocidad=24 en la URL: para enlazar un caso concreto
   const par = new URLSearchParams(location.search);
   const [velocidad, setVelocidad] = useState(+(par.get("velocidad") || 3));     // horas simuladas por segundo
-  const [ajustes, setAjustes] = useState({ ventilacion: 25, calefaccion: par.get("calefaccion") === "1", consignaCalef: 16, co2: +(par.get("co2") || 0) });
+  const [ajustes, setAjustes] = useState({ equipo: par.get("equipo") === "bomba" ? "bomba" : "caldera", ventilacion: 25, calefaccion: par.get("calefaccion") === "1", consignaCalef: 16, co2: +(par.get("co2") || 0) });
   // ?tiempo=ges: los datos de tiempo de muestra del modelo original
   const [tiempo, setTiempoBase] = useState(TIEMPOS[par.get("tiempo")] ? par.get("tiempo") : "hortimed");
   const cercano = (k, dia) => TIEMPOS[k].inicios.reduce((a, b) => (Math.abs(b[0] - dia) < Math.abs(a[0] - dia) ? b : a))[0];
@@ -50,7 +62,7 @@ export function useSimulacion() {
     setTiempoBase(k);
   };
 
-  const aj = useCallback(() => ({ ...AJUSTES, T_sp_vent: ajustes.ventilacion + T_K, calefaccion: ajustes.calefaccion, T_sp_calef: ajustes.consignaCalef + T_K, added_CO2: ajustes.co2,
+  const aj = useCallback(() => ({ ...AJUSTES, T_sp_vent: ajustes.ventilacion + T_K, calefaccion: ajustes.calefaccion, T_sp_calef: ajustes.consignaCalef + T_K, added_CO2: ajustes.co2, equipo: ajustes.equipo,
     ...(latitud != null && { latitud }) }), [ajustes, latitud]);
 
   const reinicia = useCallback((dia) => {
@@ -58,7 +70,7 @@ export function useSimulacion() {
     // ?hora=13: empieza a esa hora (para enlazar o capturar un momento concreto)
     const hora = +(new URLSearchParams(location.search).get("hora") || 0);
     st.t = dia * 86400 + hora * 3600; st.inicio = st.t; st.y = estadoInicial(st.clima, st.t); st.historial = [];
-    st.cultivo = []; st.racimos = []; st.gdNuevo = RACIMOS.cadaGD; st.frutoAnterior = st.y[15];
+    st.cultivo = []; st.energia = { calor: 0, gas: 0, electrica: 0, co2: 0 }; st.racimos = []; st.gdNuevo = RACIMOS.cadaGD; st.frutoAnterior = st.y[15];
     // un primer paso para tener flujos que dibujar
     st.flujos = {}; derivadas(st.t, st.y, st.clima, aj(), st.flujos); muestrea(st);
     setVista(foto(st));
@@ -82,6 +94,7 @@ export function useSimulacion() {
       let pasos = 0;
       if (st.t + PASO > st.clima.fin) { setEnMarcha(false); return; }   // se acabaron los datos de tiempo
       while (acumulado >= PASO && pasos < 600 && st.t + PASO <= st.clima.fin) {
+        acumulaEnergia(st, ajRef.current, st.t, st.y);
         st.y = pasoROS2(f, st.t, st.y, PASO); st.t += PASO; acumulado -= PASO; pasos++;
         if (st.t % MUESTRA === 0) { st.flujos = {}; derivadas(st.t, st.y, st.clima, ajRef.current, st.flujos); muestrea(st); actualizaRacimos(st); }
       }
@@ -112,4 +125,4 @@ function muestrea(st) {
   }
 }
 
-const foto = (st) => ({ t: st.t, y: Array.from(st.y), flujos: { ...st.flujos }, historial: st.historial.slice(), cultivo: st.cultivo.slice(), inicio: st.inicio, racimos: (st.racimos || []).map((r) => ({ ...r })) });
+const foto = (st) => ({ t: st.t, y: Array.from(st.y), flujos: { ...st.flujos }, historial: st.historial.slice(), cultivo: st.cultivo.slice(), inicio: st.inicio, energia: { ...st.energia }, racimos: (st.racimos || []).map((r) => ({ ...r })) });

@@ -5,6 +5,8 @@ import { useSimulacion, TIEMPOS } from "./simulacion.js";
 import { PIEZAS, FLUJOS, TIPOS } from "./piezas.js";
 import { Graficas } from "./Graficas.jsx";
 import { Calendario } from "./Calendario.jsx";
+import { Energia } from "./Energia.jsx";
+import { EQUIPOS } from "./simulacion.js";
 import { lazy, Suspense } from "react";
 // three.js solo se descarga si se abre la vista 3D
 const Vista3D = lazy(() => import("./Vista3D.jsx").then((m) => ({ default: m.Vista3D })));
@@ -144,6 +146,8 @@ export default function App() {
         <label>Ventanas desde <input type="range" min="15" max="32" step="0.5" value={ajustes.ventilacion} onChange={cambia("ventilacion")} /> <output>{ajustes.ventilacion} °C</output></label>
         <label><input type="checkbox" checked={ajustes.calefaccion} onChange={cambia("calefaccion")} /> Calefacción</label>
         {ajustes.calefaccion && <label>a <input type="range" min="8" max="22" step="0.5" value={ajustes.consignaCalef} onChange={cambia("consignaCalef")} /> <output>{ajustes.consignaCalef} °C</output></label>}
+        {ajustes.calefaccion && <label>con <select value={ajustes.equipo} onChange={(e) => setAjustes((a) => ({ ...a, equipo: e.target.value }))}>
+          {Object.entries(EQUIPOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>}
         <label>CO₂ <input type="range" min="0" max="10" step="0.5" value={ajustes.co2} onChange={cambia("co2")} /> <output>{ajustes.co2} kg/h</output></label>
       </div>
       {vista && sim.listo && <Calendario t={vista.t} rango={sim.rango} anio={TIEMPOS[sim.tiempo].anio} saltar={(d) => { sim.setInicio(d); sim.setEnMarcha(true); }} />}
@@ -157,7 +161,10 @@ export default function App() {
             ? <Suspense fallback={<div className="cargando">cargando la vista 3D…</div>}><Vista3D vista={vista} latitud={sim.latitud} /></Suspense>
             : <ReactFlowProvider><Diagrama vista={vista} ajustes={ajustes} seleccion={seleccion} setSeleccion={setSeleccion} /></ReactFlowProvider>}
         </div>
-        <Panel vista={vista} seleccion={seleccion} />
+        <div className="columna">
+          <Panel vista={vista} seleccion={seleccion} />
+          {vista && <Energia energia={vista.energia} dias={(vista.t - vista.inicio) / 86400} equipo={ajustes.equipo} />}
+        </div>
       </div>
       {vista && <Graficas historial={vista.historial} cultivo={vista.cultivo} inicio={vista.inicio} ajustes={ajustes} anio={TIEMPOS[sim.tiempo].anio} />}
     </div>

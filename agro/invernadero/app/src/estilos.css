@@ -11,7 +11,8 @@ html, body { margin: 0; background: var(--navy); color: var(--on); font: 14px/1.
 select, button { background: var(--navy2); color: var(--on); border: 1px solid var(--borde); border-radius: 4px; padding: 4px 9px; font: inherit; cursor: pointer; }
 .cuerpo { display: grid; grid-template-columns: 1fr 300px; gap: 10px; }
 .diagrama { position: relative; height: 560px; background: var(--navy2); border-radius: 6px; overflow: hidden; }
-.panel { background: var(--navy2); border-radius: 6px; padding: 12px 14px; height: 560px; overflow: auto; }
+.columna { display: flex; flex-direction: column; gap: 10px; height: 560px; min-height: 0; }
+.panel { background: var(--navy2); border-radius: 6px; padding: 12px 14px; flex: 1; min-height: 0; overflow: auto; }
 .panel h3 { margin: 0 0 6px; font-size: 16px; }
 .panel p { margin: 0 0 10px; color: #c9d4e3; }
 .panel .suave { color: var(--suave); font-size: 13px; }
@@ -38,7 +39,7 @@ table.flujos td { padding: 3px 4px; border-top: 1px solid #22385a; } table.flujo
 .grafica-ejes { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--suave); }
 @media (max-width: 760px) {
   .cuerpo { grid-template-columns: 1fr; }
-  .diagrama { height: 620px; } .panel { height: auto; max-height: 360px; }
+  .diagrama { height: 620px; } .columna { height: auto; } .panel { flex: none; height: auto; max-height: 360px; }
   .graficas { grid-template-columns: 1fr; }
 }
 
@@ -66,3 +67,15 @@ table.flujos td { padding: 3px 4px; border-top: 1px solid #22385a; } table.flujo
 .boton-camara:hover { background: #2a4469; }
 @media (min-width: 761px) { .grafica:last-child { grid-column: span 2; } }
 .barra-cal .icono-estacion { position: absolute; bottom: 3px; transform: translateX(-50%); font-size: 15px; pointer-events: none; }
+
+/* energía */
+.energia { background: var(--navy2); border-radius: 6px; padding: 10px 14px; font-size: 12.5px; }
+.energia h4 { margin: 0 0 6px; font-size: 13.5px; }
+.energia .suave { color: var(--suave); font-weight: 400; }
+.energia .reparto { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: #0f2240; margin-bottom: 6px; }
+.energia table { width: 100%; border-collapse: collapse; }
+.energia td { padding: 2px 0; vertical-align: top; }
+.energia td.num { text-align: right; white-space: nowrap; padding-left: 8px; font-variant-numeric: tabular-nums; }
+.energia td i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+.energia tr.total td { border-top: 1px solid #2d4466; padding-top: 4px; font-weight: 600; }
+.energia p { margin: 4px 0 0; }
