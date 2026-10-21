@@ -1,0 +1,264 @@
+// El invernadero en 3D (three.js): la geometría es la del modelo y el estado, el de la simulación.
+//
+// Medidas: 25 × 10 m de planta, paredes de 3 m y cumbrera a 5 m. Con ellas salen exactamente las
+// áreas de GES (paredes largas de 75 m², testeros de 40 m², faldones de 135 m², suelo de 250 m²) y
+// su volumen de 1000 m³. Las paredes largas miran al SE y al NO, como en el modelo.
+//
+// El sol se coloca con la fecha, la hora (solar) y la latitud de la simulación; el cielo, las
+// ventanas cenitales, la condensación, la calefacción y el tamaño de las plantas siguen al modelo.
+import { useEffect, useRef } from "react";
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+
+const L = 25, W = 10, H = 3, CUMBRERA = 5, T_K = 273.15;
+const rad = Math.PI / 180;
+
+// posición del sol: acimut desde el norte (hacia el este) y elevación, en radianes
+export function posicionSol(t, latitud) {
+  const dia = Math.ceil(t / 86400) || 1, hora = (t / 3600) % 24;
+  const decl = 23.45 * rad * Math.sin((2 * Math.PI * (284 + dia)) / 365);
+  const w = (hora - 12) * 15 * rad, la = latitud * rad;
+  const elev = Math.asin(Math.sin(la) * Math.sin(decl) + Math.cos(la) * Math.cos(decl) * Math.cos(w));
+  let az = Math.acos(Math.min(1, Math.max(-1, (Math.sin(decl) - Math.sin(elev) * Math.sin(la)) / (Math.cos(elev) * Math.cos(la)))));
+  if (w > 0) az = 2 * Math.PI - az;
+  return { az, elev };
+}
+const R_SOL = 20;                                  // radio de la cúpula en que se dibuja el sol
+function halo() {
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const g = c.getContext("2d"), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.25, "rgba(255,240,200,0.5)"); gr.addColorStop(1, "rgba(255,220,150,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+// x = este, z = sur, y = arriba
+const direccion = (az, elev) => new THREE.Vector3(Math.sin(az) * Math.cos(elev), Math.sin(elev), -Math.cos(az) * Math.cos(elev));
+
+const mezcla = (a, b, f) => new THREE.Color(a).lerp(new THREE.Color(b), Math.min(Math.max(f, 0), 1));
+function colorCielo(elev) {                      // noche → crepúsculo → día
+  const e = elev / rad;
+  if (e < -8) return new THREE.Color("#070d19");
+  if (e < 0) return mezcla("#070d19", "#3a3550", (e + 8) / 8);
+  if (e < 8) return mezcla("#3a3550", "#e59a62", e / 8).lerp(new THREE.Color("#8fbde6"), Math.max(0, (e - 4) / 8));
+  return mezcla("#8fbde6", "#6fa9e0", (e - 8) / 40);
+}
+const colorTemperatura = (T) => mezcla("#3b82f6", "#f97316", (T - 5) / 25);   // 5 °C azul … 30 °C naranja
+
+function etiqueta(texto, { tam = 48, color = "#1f2937", fondo = null } = {}) {
+  const c = document.createElement("canvas"), g = c.getContext("2d");
+  g.font = `600 ${tam}px system-ui, sans-serif`;
+  const w = Math.ceil(g.measureText(texto).width) + 24; c.width = w; c.height = tam + 20;
+  g.font = `600 ${tam}px system-ui, sans-serif`;
+  if (fondo) { g.fillStyle = fondo; g.fillRect(0, 0, c.width, c.height); }
+  g.fillStyle = color; g.textBaseline = "middle"; g.fillText(texto, 12, c.height / 2);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
+  s.scale.set(w / 60, c.height / 60, 1);
+  return s;
+}
+
+function construye(escena) {
+  const o = {};
+
+  // suelo: un disco de hierba que se funde con el fondo
+  const c = document.createElement("canvas"); c.width = c.height = 512;
+  const g = c.getContext("2d"), gr = g.createRadialGradient(256, 256, 30, 256, 256, 256);
+  gr.addColorStop(0, "#8fb35a"); gr.addColorStop(0.55, "#a9c47c"); gr.addColorStop(1, "rgba(200,214,180,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, 512, 512);
+  const texSuelo = new THREE.CanvasTexture(c); texSuelo.colorSpace = THREE.SRGBColorSpace;
+  o.suelo = new THREE.Mesh(new THREE.CircleGeometry(70, 64), new THREE.MeshStandardMaterial({ map: texSuelo, transparent: true, roughness: 1 }));
+  o.suelo.rotation.x = -Math.PI / 2; o.suelo.receiveShadow = true; escena.add(o.suelo);
+
+  // puntos cardinales
+  for (const [txt, x, z] of [["N", 0, -34], ["S", 0, 34], ["E", 34, 0], ["O", -34, 0]]) {
+    const s = etiqueta(txt, { tam: 64, color: "#334155" }); s.position.set(x, 0.6, z); s.scale.multiplyScalar(1.4); escena.add(s);
+  }
+
+  // el invernadero: eje largo en x local, girado 45° para que las paredes largas miren al SE y al NO
+  const inv = new THREE.Group(); inv.rotation.y = Math.PI / 4; escena.add(inv); o.inv = inv;
+
+  // interior: pasillo de hormigón y suelo
+  const piso = new THREE.Mesh(new THREE.PlaneGeometry(L, W), new THREE.MeshStandardMaterial({ color: "#8a7a66", roughness: 1 }));
+  piso.rotation.x = -Math.PI / 2; piso.position.y = 0.01; piso.receiveShadow = true; inv.add(piso);
+  const pasillo = new THREE.Mesh(new THREE.PlaneGeometry(L, 1.4), new THREE.MeshStandardMaterial({ color: "#b8b4ab", roughness: 0.9 }));
+  pasillo.rotation.x = -Math.PI / 2; pasillo.position.y = 0.02; pasillo.receiveShadow = true; inv.add(pasillo);
+
+  // vidrio: paredes, testeros y faldones
+  o.vidrio = new THREE.MeshPhysicalMaterial({ color: "#d6ecff", transparent: true, opacity: 0.24, roughness: 0.08, metalness: 0.15, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false });
+  const panel = (geo, x, y, z, ry = 0, rx = 0) => { const m = new THREE.Mesh(geo, o.vidrio); m.position.set(x, y, z); m.rotation.set(rx, ry, 0, "YXZ"); inv.add(m); return m; };
+  panel(new THREE.PlaneGeometry(L, H), 0, H / 2, W / 2);
+  panel(new THREE.PlaneGeometry(L, H), 0, H / 2, -W / 2);
+  const testero = new THREE.Shape([new THREE.Vector2(-W / 2, 0), new THREE.Vector2(W / 2, 0), new THREE.Vector2(W / 2, H), new THREE.Vector2(0, CUMBRERA), new THREE.Vector2(-W / 2, H)]);
+  panel(new THREE.ShapeGeometry(testero), L / 2, 0, 0, Math.PI / 2);
+  panel(new THREE.ShapeGeometry(testero), -L / 2, 0, 0, -Math.PI / 2);
+  const faldon = Math.hypot(W / 2, CUMBRERA - H), pendiente = Math.atan2(CUMBRERA - H, W / 2);
+  // cada faldón: la parte fija y una ventana cenital abatible junto a la cumbrera
+  const VENT = 1.4, fijo = faldon - VENT;
+  o.ventanas = [];
+  for (const lado of [1, -1]) {
+    // parte fija del faldón: del alero hacia la cumbrera
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(L, fijo), o.vidrio);
+    const f = new THREE.Group(); f.position.set(0, H, (lado * W) / 2); f.rotation.x = lado * pendiente; inv.add(f);
+    p.position.set(0, 0, (-lado * fijo) / 2); p.rotation.x = -Math.PI / 2; f.add(p);
+    // ventana: bisagra en la cumbrera; al abrir, el borde de abajo sube
+    const bisagra = new THREE.Group(); bisagra.position.set(0, CUMBRERA, 0); inv.add(bisagra);
+    const marco = new THREE.Group(); marco.rotation.x = lado * pendiente; bisagra.add(marco);
+    const hoja = new THREE.Mesh(new THREE.PlaneGeometry(L - 2, VENT), o.vidrio);
+    hoja.rotation.x = -Math.PI / 2; hoja.position.z = (lado * VENT) / 2; marco.add(hoja);
+    const borde = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(L - 2, VENT)), new THREE.LineBasicMaterial({ color: "#475569" }));
+    borde.rotation.x = -Math.PI / 2; borde.position.z = (lado * VENT) / 2; marco.add(borde);
+    o.ventanas.push({ marco, lado, base: lado * pendiente });
+  }
+
+  // estructura: pilares, cerchas, cumbrera y aleros de aluminio
+  const metal = new THREE.MeshStandardMaterial({ color: "#3f4a57", metalness: 0.6, roughness: 0.4 });
+  const barra = (a, b, grosor = 0.07) => {
+    const v = new THREE.Vector3().subVectors(b, a), m = new THREE.Mesh(new THREE.BoxGeometry(grosor, v.length(), grosor), metal);
+    m.position.copy(a).addScaledVector(v, 0.5); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().normalize());
+    m.castShadow = true; inv.add(m);
+  };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  for (let x = -L / 2; x <= L / 2 + 1e-6; x += 2.5) {
+    barra(V(x, 0, W / 2), V(x, H, W / 2)); barra(V(x, 0, -W / 2), V(x, H, -W / 2));
+    barra(V(x, H, W / 2), V(x, CUMBRERA, 0)); barra(V(x, H, -W / 2), V(x, CUMBRERA, 0));
+  }
+  barra(V(-L / 2, CUMBRERA, 0), V(L / 2, CUMBRERA, 0), 0.1);
+  for (const z of [W / 2, -W / 2]) { barra(V(-L / 2, H, z), V(L / 2, H, z), 0.1); barra(V(-L / 2, 0.05, z), V(L / 2, 0.05, z), 0.1); }
+  for (const x of [L / 2, -L / 2]) { barra(V(x, 0, -W / 4), V(x, H + (CUMBRERA - H) / 2, -W / 4)); barra(V(x, 0, W / 4), V(x, H + (CUMBRERA - H) / 2, W / 4)); }
+
+  // tubos de calefacción a ras de suelo
+  o.tubos = new THREE.MeshStandardMaterial({ color: "#6b7280", emissive: "#ff3b1f", emissiveIntensity: 0, metalness: 0.5, roughness: 0.5 });
+  for (const z of [-3.6, -1.6, 1.6, 3.6]) {
+    const tubo = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, L - 1, 10), o.tubos);
+    tubo.rotation.z = Math.PI / 2; tubo.position.set(0, 0.12, z); inv.add(tubo);
+  }
+
+  // cultivo: cuatro líneas de tomate sobre sacos de sustrato; altura y follaje según el IAF
+  const filas = [-3.6, -1.6, 1.6, 3.6], porFila = 22;
+  const saco = new THREE.MeshStandardMaterial({ color: "#e5e1d6", roughness: 0.9 });
+  for (const z of filas) { const m = new THREE.Mesh(new THREE.BoxGeometry(L - 2, 0.12, 0.3), saco); m.position.set(0, 0.32, z); m.castShadow = m.receiveShadow = true; inv.add(m); }
+  o.hojas = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.32, 1), new THREE.MeshStandardMaterial({ color: "#3f8f3a", roughness: 0.8, flatShading: true }), filas.length * porFila * 3);
+  o.hojas.castShadow = true; o.hojas.receiveShadow = true; inv.add(o.hojas);
+  o.plantas = [];
+  for (const z of filas) for (let i = 0; i < porFila; i++) o.plantas.push([-L / 2 + 1.3 + (i * (L - 2.6)) / (porFila - 1), z, (Math.sin(i * 12.9898 + z * 78.233) * 43758.5453) % 1]);
+
+  // aire interior: un volumen apenas teñido por su temperatura; y la condensación en el vidrio
+  o.aire = new THREE.MeshBasicMaterial({ color: "#f97316", transparent: true, opacity: 0.05, depthWrite: false });
+  const aire = new THREE.Mesh(new THREE.BoxGeometry(L - 0.1, H - 0.1, W - 0.1), o.aire); aire.position.y = H / 2; inv.add(aire);
+
+  // cotas, como en un plano
+  const cota = (a, b, txt, off) => {
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color: "#334155" })); inv.add(l);
+    const s = etiqueta(txt, { tam: 40, color: "#334155" }); s.position.copy(a).add(b).multiplyScalar(0.5).add(off); inv.add(s);
+  };
+  cota(V(-L / 2, 0.03, W / 2 + 1.2), V(L / 2, 0.03, W / 2 + 1.2), "25 m", V(0, 0.5, 0.6));
+  cota(V(L / 2 + 1.2, 0.03, -W / 2), V(L / 2 + 1.2, 0.03, W / 2), "10 m", V(0.8, 0.5, 0));
+
+  // sol, estrellas y luces
+  o.solDisco = new THREE.Mesh(new THREE.SphereGeometry(1.2, 24, 16), new THREE.MeshBasicMaterial({ color: "#ffe9a8", fog: false }));
+  o.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo(), color: "#ffd58a", transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }));
+  o.halo.scale.set(10, 10, 1); o.solDisco.add(o.halo);
+  escena.add(o.solDisco);
+  // recorrido del sol durante el día de la simulación (se recalcula al cambiar de día)
+  o.recorrido = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: "#ffe2a0", dashSize: 1, gapSize: 0.8, transparent: true, opacity: 0.7, fog: false }));
+  escena.add(o.recorrido); o.diaRecorrido = null;
+  const p = []; for (let i = 0; i < 700; i++) { const a = Math.random() * 2 * Math.PI, e = Math.asin(Math.random()); p.push(...direccion(a, e).multiplyScalar(120).toArray()); }
+  o.estrellas = new THREE.Points(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(p, 3)), new THREE.PointsMaterial({ color: "#ffffff", size: 0.5, transparent: true, opacity: 0 }));
+  escena.add(o.estrellas);
+  o.luzSol = new THREE.DirectionalLight("#fff4dc", 2.5); o.luzSol.castShadow = true;
+  o.luzSol.shadow.mapSize.set(2048, 2048); Object.assign(o.luzSol.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 120 });
+  o.luzSol.shadow.bias = -0.0005; escena.add(o.luzSol, o.luzSol.target);
+  o.cielo = new THREE.HemisphereLight("#bcd7f2", "#6b7d4a", 0.6); escena.add(o.cielo);
+  o.calor = new THREE.PointLight("#ff6a3d", 0, 30); o.calor.position.set(0, 0.8, 0); inv.add(o.calor);
+  return o;
+}
+
+export function Vista3D({ vista, latitud }) {
+  const caja = useRef(null), estado = useRef(null);
+
+  useEffect(() => {
+    const el = caja.current;
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    el.appendChild(renderer.domElement);
+    const escena = new THREE.Scene(); escena.fog = new THREE.Fog("#8fbde6", 60, 150);
+    const camara = new THREE.PerspectiveCamera(50, 1, 0.5, 400); camara.position.set(-21, 5, 29);
+    const controles = new OrbitControls(camara, renderer.domElement);
+    controles.target.set(0, 7.5, 2); controles.enableDamping = true; controles.maxPolarAngle = Math.PI / 2 - 0.05; controles.minDistance = 10; controles.maxDistance = 90;
+    controles.enableZoom = true;
+    const o = construye(escena);
+    estado.current = { o, escena };
+    const tam = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h); camara.aspect = w / h; camara.fov = w / h < 0.8 ? 62 : 50; camara.updateProjectionMatrix();   // en vertical, más ángulo };
+    tam(); const ro = new ResizeObserver(tam); ro.observe(el);
+    let raf; const bucle = () => { controles.update(); renderer.render(escena, camara); raf = requestAnimationFrame(bucle); }; bucle();
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); controles.dispose(); renderer.dispose(); el.removeChild(renderer.domElement); };
+  }, []);
+
+  // cada vez que avanza la simulación
+  useEffect(() => {
+    if (!vista || !estado.current) return;
+    const { o, escena } = estado.current, f = vista.flujos, y = vista.y;
+    const { az, elev } = posicionSol(vista.t, latitud);
+    const d = direccion(az, elev);
+    o.solDisco.position.copy(d).multiplyScalar(R_SOL); o.solDisco.visible = elev > -0.05;
+    o.halo.material.opacity = Math.min(Math.max(f.sol_exterior / 500 / 250, 0.25), 1);
+    const dia = Math.ceil(vista.t / 86400);
+    if (dia !== o.diaRecorrido) {
+      const pts = [];
+      for (let h = 0; h <= 24; h += 0.1) { const sp = posicionSol((dia - 1) * 86400 + h * 3600, latitud); if (sp.elev > -0.02) pts.push(direccion(sp.az, sp.elev).multiplyScalar(R_SOL)); }
+      o.recorrido.geometry.dispose(); o.recorrido.geometry = new THREE.BufferGeometry().setFromPoints(pts); o.recorrido.computeLineDistances();
+      o.diaRecorrido = dia;
+    }
+    o.recorrido.material.opacity = elev > 0 ? 0.7 : 0.25;
+    o.luzSol.position.copy(d).multiplyScalar(50);
+    // intensidad: la radiación del modelo (nubes incluidas), no solo la altura del sol
+    const sol = Math.max(f.sol_exterior / 500, 0);
+    o.luzSol.intensity = elev > 0 ? 0.3 + 2.6 * Math.min(sol / 300, 1) : 0;
+    o.luzSol.color = mezcla("#ff9a55", "#fff4dc", elev / (15 * rad));
+    const cielo = colorCielo(elev);
+    if (elev > 0 && sol < 60) cielo.lerp(new THREE.Color("#9aa6b2"), 0.5 * (1 - sol / 60));   // día cubierto: cielo gris
+    escena.background = cielo; escena.fog.color = cielo;
+    o.cielo.intensity = 0.3 + 0.45 * Math.min(Math.max(elev / (20 * rad), 0), 1);
+    o.estrellas.material.opacity = Math.min(Math.max(-elev / (10 * rad), 0), 1);
+
+    // ventanas cenitales: de 0 a 30 renovaciones por hora, hasta 35° de apertura
+    const apertura = Math.min(Math.max((f.renovaciones_h - 1.5) / 28.5, 0), 1) * 35 * rad;
+    for (const v of o.ventanas) v.marco.rotation.x = v.base - v.lado * apertura;
+
+    // aire y vidrio
+    const Ti = y[1] - T_K;
+    o.aire.color = colorTemperatura(Ti); o.aire.opacity = 0.04 + 0.05 * Math.min(Math.abs(Ti - 18) / 12, 1);
+    o.vidrio.opacity = 0.14 + 0.3 * Math.min(Math.max((f.HR_int - 85) / 15, 0), 1);       // vaho con humedad alta
+
+    // calefacción
+    const calor = Math.min(f.calefaccion / 40000, 1);
+    o.tubos.emissiveIntensity = 1.5 * calor; o.calor.intensity = 25 * calor;
+
+    // plantas: altura y follaje con el índice de área foliar
+    const lai = f.LAI, alto = 0.35 + 0.45 * Math.min(lai, 4), m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
+    let k = 0;
+    for (const [x, z, r] of o.plantas) for (let n = 0; n < 3; n++) {
+      const tam = (0.45 + 0.25 * Math.min(lai, 4)) * (0.85 + 0.3 * Math.abs(r));
+      s.set(tam, tam * 1.25, tam); p.set(x, 0.38 + (alto * (n + 0.6)) / 3, z + 0.08 * Math.sin(r * 9 + n));
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r * 6 + n);
+      o.hojas.setMatrixAt(k++, m.compose(p, q, s));
+    }
+    o.hojas.instanceMatrix.needsUpdate = true;
+  }, [vista, latitud]);
+
+  const f = vista?.flujos, sp = vista ? posicionSol(vista.t, latitud) : null;
+  return (
+    <div className="vista3d" ref={caja}>
+      {f && (
+        <div className="rotulo3d">
+          <span>☀ {sp.elev > 0 ? `${(sp.elev / rad).toFixed(0)}° · ${(f.sol_exterior / 500).toFixed(0)} W/m²` : "noche"}</span>
+          <span>fuera {f.T_ext.toFixed(1)} °C</span>
+          <span>dentro {(vista.y[1] - T_K).toFixed(1)} °C · {f.HR_int.toFixed(0)} %</span>
+          <span>ventanas {f.renovaciones_h.toFixed(1)} renov./h</span>
+          {f.calefaccion > 0 && <span>calefacción {(f.calefaccion / 1000).toFixed(1)} kW</span>}
+        </div>
+      )}
+    </div>
+  );
+}

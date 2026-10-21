@@ -4,6 +4,9 @@ import "@xyflow/react/dist/style.css";
 import { useSimulacion, TIEMPOS } from "./simulacion.js";
 import { PIEZAS, FLUJOS, TIPOS } from "./piezas.js";
 import { Graficas } from "./Graficas.jsx";
+import { lazy, Suspense } from "react";
+// three.js solo se descarga si se abre la vista 3D
+const Vista3D = lazy(() => import("./Vista3D.jsx").then((m) => ({ default: m.Vista3D })));
 
 const LADOS = { top: Position.Top, right: Position.Right, bottom: Position.Bottom, left: Position.Left };
 const DESPLAZA = { vapor: 30, energia: 50, co2: 70 };                // posición de cada tipo en el lado (%)
@@ -118,6 +121,8 @@ export default function App() {
   const sim = useSimulacion();
   // ?pieza=aire abre el panel de esa pieza (para enlazar desde el texto del artículo)
   const [seleccion, setSeleccion] = useState(() => new URLSearchParams(location.search).get("pieza"));
+  // ?vista=3d abre la vista 3D
+  const [vista3d, setVista3d] = useState(() => new URLSearchParams(location.search).get("vista") === "3d");
   const { vista, ajustes, setAjustes } = sim;
   const cambia = (k) => (e) => setAjustes((a) => ({ ...a, [k]: e.target.type === "checkbox" ? e.target.checked : +e.target.value }));
   return (
@@ -140,7 +145,15 @@ export default function App() {
         <label>CO₂ <input type="range" min="0" max="10" step="0.5" value={ajustes.co2} onChange={cambia("co2")} /> <output>{ajustes.co2} kg/h</output></label>
       </div>
       <div className="cuerpo">
-        <div className="diagrama"><ReactFlowProvider><Diagrama vista={vista} ajustes={ajustes} seleccion={seleccion} setSeleccion={setSeleccion} /></ReactFlowProvider></div>
+        <div className="diagrama">
+          <div className="pestanas">
+            <button className={vista3d ? "" : "activa"} onClick={() => setVista3d(false)}>Piezas</button>
+            <button className={vista3d ? "activa" : ""} onClick={() => setVista3d(true)}>3D</button>
+          </div>
+          {vista3d
+            ? <Suspense fallback={<div className="cargando">cargando la vista 3D…</div>}><Vista3D vista={vista} latitud={sim.latitud} /></Suspense>
+            : <ReactFlowProvider><Diagrama vista={vista} ajustes={ajustes} seleccion={seleccion} setSeleccion={setSeleccion} /></ReactFlowProvider>}
+        </div>
         <Panel vista={vista} seleccion={seleccion} />
       </div>
       {vista && <Graficas historial={vista.historial} ajustes={ajustes} />}

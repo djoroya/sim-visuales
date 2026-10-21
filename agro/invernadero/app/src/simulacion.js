@@ -77,7 +77,8 @@ export function useSimulacion() {
   // los ajustes se leen en cada paso sin reiniciar el bucle
   const ajRef = useRef(aj()); useEffect(() => { ajRef.current = aj(); }, [aj]);
 
-  return { listo, tiempo, setTiempo, vista, enMarcha, setEnMarcha, velocidad, setVelocidad, ajustes, setAjustes, inicio, setInicio, reinicia: () => { reinicia(inicio); setEnMarcha(true); } };
+  // latitud: la de los datos, o la de GES si no la traen
+  return { listo, tiempo, setTiempo, latitud: latitud ?? 53.193583, vista, enMarcha, setEnMarcha, velocidad, setVelocidad, ajustes, setAjustes, inicio, setInicio, reinicia: () => { reinicia(inicio); setEnMarcha(true); } };
 }
 
 function muestrea(st) {

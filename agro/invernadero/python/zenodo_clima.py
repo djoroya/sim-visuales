@@ -68,15 +68,12 @@ def main(entrada, salida):
     medios = [np.sum(reloj[doy == d] * G[doy == d]) / np.sum(G[doy == d]) for d in np.unique(doy) if G[doy == d].sum() > 0]
     desfase = round(float(np.median(medios)) - 12, 2)
 
-    # serie horaria en hora solar, desde la primera hora en punto
-    t0 = t[0] - dt.timedelta(hours=desfase)
-    s = np.array([(x - t0).total_seconds() for x in t]) / 3600
-    inicio = np.ceil(s[0])
-    horas = np.arange(inicio, np.floor(s[-1]) + 1)
-    interp = lambda v: np.interp(horas, s, v)
+    # serie horaria en hora solar: cada muestra, en horas solares desde el 1 de enero
+    base = dt.datetime(t[0].year, 1, 1)
+    solar = np.array([(x - base).total_seconds() for x in t]) / 3600 - desfase
+    abs_h = np.arange(np.ceil(solar[0]), np.floor(solar[-1]) + 1)   # horas en punto (hora solar)
+    interp = lambda v: np.interp(abs_h, solar, v)
     T_h, HR_h, V_h, G_h = interp(T), interp(HR), interp(viento), np.maximum(interp(G), 0)
-    base = dt.datetime(t0.year, 1, 1)
-    abs_h = (t0 - base).total_seconds() / 3600 + horas          # horas desde el 1 de enero (hora solar)
     doy_h = np.floor(abs_h / 24) + 1
     hs = abs_h % 24
 
@@ -111,7 +108,7 @@ def main(entrada, salida):
     json.dump({
         "fuente": "HortiMED, Zenodo 10.5281/zenodo.6697044 (CC-BY 4.0)",
         "columnas": ["T_ext", "T_cielo", "viento", "HR"] + [f"directa_{k}" for k in range(8)] + [f"difusa_{k}" for k in range(8)],
-        "t0": int(abs_h[0] * 3600), "filasMinuto": (nh - 1) * 60 + 1, "latitud": LATITUD, "anio": t0.year,
+        "t0": int(abs_h[0] * 3600), "filasMinuto": (nh - 1) * 60 + 1, "latitud": LATITUD, "anio": base.year,
         "horas": [[round(float(v), 3) for v in f] for f in filas],
     }, open(salida, "w"), separators=(",", ":"))
     fin = base + dt.timedelta(hours=float(abs_h[-1]))
