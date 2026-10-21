@@ -118,22 +118,36 @@ function construye(escena) {
   panel(new THREE.ShapeGeometry(testero), L / 2, 0, 0, Math.PI / 2);
   panel(new THREE.ShapeGeometry(testero), -L / 2, 0, 0, -Math.PI / 2);
   const faldon = Math.hypot(W / 2, CUMBRERA - H), pendiente = Math.atan2(CUMBRERA - H, W / 2);
-  // cada faldón: la parte fija y una ventana cenital abatible junto a la cumbrera
-  const VENT = 1.4, fijo = faldon - VENT;
+  // cada faldón: la parte fija y cuatro ventanas cenitales abatibles junto a la cumbrera, con marco
+  // de aluminio que se tiñe de ámbar al abrirse, para que se note
+  const VENT = 2.2, fijo = faldon - VENT, N_VENT = 4, LARGO_VENT = (L - 2) / N_VENT - 0.25;
+  o.marcoVentana = new THREE.MeshStandardMaterial({ color: "#5b6b7d", metalness: 0.5, roughness: 0.4, emissive: "#f59e0b", emissiveIntensity: 0 });
+  o.vidrioVentana = new THREE.MeshPhysicalMaterial({ color: "#cfe9ff", transparent: true, opacity: 0.38, roughness: 0.08, metalness: 0.15, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false });
   o.ventanas = [];
   for (const lado of [1, -1]) {
     // parte fija del faldón: del alero hacia la cumbrera
     const p = new THREE.Mesh(new THREE.PlaneGeometry(L, fijo), o.vidrio);
     const f = new THREE.Group(); f.position.set(0, H, (lado * W) / 2); f.rotation.x = lado * pendiente; inv.add(f);
     p.position.set(0, 0, (-lado * fijo) / 2); p.rotation.x = -Math.PI / 2; f.add(p);
-    // ventana: bisagra en la cumbrera; al abrir, el borde de abajo sube
-    const bisagra = new THREE.Group(); bisagra.position.set(0, CUMBRERA, 0); inv.add(bisagra);
-    const marco = new THREE.Group(); marco.rotation.x = lado * pendiente; bisagra.add(marco);
-    const hoja = new THREE.Mesh(new THREE.PlaneGeometry(L - 2, VENT), o.vidrio);
-    hoja.rotation.x = -Math.PI / 2; hoja.position.z = (lado * VENT) / 2; marco.add(hoja);
-    const borde = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(L - 2, VENT)), new THREE.LineBasicMaterial({ color: "#475569" }));
-    borde.rotation.x = -Math.PI / 2; borde.position.z = (lado * VENT) / 2; marco.add(borde);
-    o.ventanas.push({ marco, lado, base: lado * pendiente });
+    // tramos fijos de la franja de ventanas: los extremos y los huecos entre ventanas
+    const franja = new THREE.Group(); franja.position.set(0, CUMBRERA, 0); franja.rotation.x = lado * pendiente; inv.add(franja);
+    const fijoFranja = (x0, x1) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, VENT), o.vidrio); m.rotation.x = -Math.PI / 2; m.position.set((x0 + x1) / 2, 0, (lado * VENT) / 2); franja.add(m); };
+    const paso = (L - 2) / N_VENT;
+    fijoFranja(-L / 2, -L / 2 + 1); fijoFranja(L / 2 - 1, L / 2);
+    for (let k = 1; k < N_VENT; k++) fijoFranja(-L / 2 + 1 + k * paso - 0.125, -L / 2 + 1 + k * paso + 0.125);
+    // ventanas: bisagra en la cumbrera; al abrir, el borde de abajo sube
+    for (let k = 0; k < N_VENT; k++) {
+      const xc = -L / 2 + 1 + (k + 0.5) * paso;
+      const bisagra = new THREE.Group(); bisagra.position.set(xc, CUMBRERA, 0); inv.add(bisagra);
+      const marco = new THREE.Group(); marco.rotation.x = lado * pendiente; bisagra.add(marco);
+      const hoja = new THREE.Mesh(new THREE.PlaneGeometry(LARGO_VENT, VENT), o.vidrioVentana);
+      hoja.rotation.x = -Math.PI / 2; hoja.position.z = (lado * VENT) / 2; marco.add(hoja);
+      // marco: dos largueros y dos travesaños
+      const g = 0.09, larguero = new THREE.BoxGeometry(LARGO_VENT, g, g), traves = new THREE.BoxGeometry(g, g, VENT);
+      for (const z of [0, lado * VENT]) { const b = new THREE.Mesh(larguero, o.marcoVentana); b.position.z = z; b.castShadow = true; marco.add(b); }
+      for (const x of [-LARGO_VENT / 2, LARGO_VENT / 2]) { const b = new THREE.Mesh(traves, o.marcoVentana); b.position.set(x, 0, (lado * VENT) / 2); b.castShadow = true; marco.add(b); }
+      o.ventanas.push({ marco, lado, base: lado * pendiente });
+    }
   }
 
   // estructura: pilares, cerchas, cumbrera y aleros de aluminio
@@ -234,7 +248,7 @@ export function Vista3D({ vista, latitud }) {
     };
     // dos encuadres: el invernadero entero, o dentro, en el pasillo entre las plantas
     const encuadres = {
-      fuera: { pos: new THREE.Vector3(-22, 4.5, 30), obj: new THREE.Vector3(0, 4, 2), min: 10 },
+      fuera: { pos: new THREE.Vector3(-15, 8, 21), obj: new THREE.Vector3(0, 3, 0), min: 8 },
       dentro: { pos: o.inv.localToWorld(new THREE.Vector3(-11.5, 1.7, -0.2)), obj: o.inv.localToWorld(new THREE.Vector3(-4, 0.9, -2.6)), min: 0.5 },
     };
     const encuadra = (k) => { const e = encuadres[k]; for (const c of o.cotas) c.visible = k === "fuera"; camara.position.copy(e.pos); controles.target.copy(e.obj); controles.minDistance = e.min; controles.update(); };
@@ -270,9 +284,10 @@ export function Vista3D({ vista, latitud }) {
     o.cielo.color.set(elev > 0 ? "#bcd7f2" : "#5a6f9e"); o.cielo.intensity = elev > 0 ? 0.25 : 0.55;
     o.estrellas.material.opacity = Math.min(Math.max(-elev / (8 * rad), 0), 1) * 0.9;
 
-    // ventanas cenitales: de 0 a 30 renovaciones por hora, hasta 35° de apertura
-    const apertura = Math.min(Math.max((f.renovaciones_h - 1.5) / 28.5, 0), 1) * 35 * rad;
+    // ventanas cenitales: la apertura del modelo (0 a 1), hasta 45°
+    const apertura = f.apertura * 45 * rad;
     for (const v of o.ventanas) v.marco.rotation.x = v.base - v.lado * apertura;
+    o.marcoVentana.emissiveIntensity = 0.9 * Math.min(f.apertura * 3, 1);
 
     // aire y vidrio
     const Ti = y[1] - T_K;
@@ -328,7 +343,7 @@ export function Vista3D({ vista, latitud }) {
           <span>☀ {sp.elev > 0 ? `${(sp.elev / rad).toFixed(0)}° · ${(f.sol_exterior / 500).toFixed(0)} W/m²` : "noche"}</span>
           <span>fuera {f.T_ext.toFixed(1)} °C</span>
           <span>dentro {(vista.y[1] - T_K).toFixed(1)} °C · {f.HR_int.toFixed(0)} %</span>
-          <span>ventanas {f.renovaciones_h.toFixed(1)} renov./h</span>
+          <span>ventanas {(f.apertura * 100).toFixed(0)} % abiertas · {f.renovaciones_h.toFixed(1)} renov./h</span>
           {vista.racimos?.length > 0 && <span>🍅 {vista.racimos.length} racimos, {vista.racimos.filter((r) => r.gd >= RACIMOS.maduroEn).length} maduros · {(vista.y[15] * 1000).toFixed(0)} g/m² de fruto</span>}
           {f.calefaccion > 0 && <span>calefacción {(f.calefaccion / 1000).toFixed(1)} kW</span>}
         </div>

@@ -240,7 +240,7 @@ export function derivadas(t, y, clima, aj = AJUSTES, flujos = null) {
     co2_ventilacion: MC_i_e * V, co2_fotosintesis: (M_c / M_carb) * A_v * MC_i_buf,
     co2_respiracion: (M_c / M_carb) * A_v * (MC_buf_i + MC_fruit_i + MC_leaf_i + MC_stem_i), co2_inyeccion: MC_cc_i * V,
     // otros
-    calefaccion: Q_calef, renovaciones_h: R_a * 3600, PAR, LAI, T_ext: T_e - T_k, HR_ext: rel_humid * 100, HR_int: (C_w / sat_conc(T_i)) * 100,
+    calefaccion: Q_calef, renovaciones_h: R_a * 3600, apertura: Math.min(Math.max(dTv / 4, 0), 1), PAR, LAI, T_ext: T_e - T_k, HR_ext: rel_humid * 100, HR_int: (C_w / sat_conc(T_i)) * 100,
     CO2_ppm: C_c_ppm, sol_exterior: direct + diffuse,
   });
   return d;
