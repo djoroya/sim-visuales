@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { creaClima, estadoInicial, derivadas, AJUSTES } from "./modelo/ges.js";
 import { pasoROS2 } from "./modelo/integrador.js";
 
-const T_K = 273.15, PASO = 60, MUESTRA = 600, DIAS_HISTORIAL = 4, DIAS_CULTIVO = 120;
+const T_K = 273.15, PASO = 60, MUESTRA = 600, DIAS_HISTORIAL = 4, DIAS_CULTIVO = 200;
 
 // Racimos de tomate: una capa visual encima del modelo, que solo da la masa total de fruto (C_fruit).
 // Lo que crece C_fruit se reparte entre los racimos que aún engordan; cada racimo cuenta los

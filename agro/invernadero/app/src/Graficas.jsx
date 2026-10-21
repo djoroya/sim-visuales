@@ -59,8 +59,8 @@ export function Graficas({ historial, cultivo, inicio, ajustes, anio }) {
   const tmin = Math.floor(Math.min(0, ...temps) / 5) * 5, tmax = Math.ceil(Math.max(30, ...temps) / 5) * 5;
   const cmax = Math.ceil(Math.max(500, ...historial.map((h) => h.CO2)) / 100) * 100;
 
-  // cultivo: ventana de 3 meses; mientras la simulación es más corta, se llena de izquierda a derecha
-  const V = 90 * 86400, c1 = Math.max(ahora, inicio + V), c0 = c1 - V;
+  // cultivo: ventana de 6 meses; mientras la simulación es más corta, se llena de izquierda a derecha
+  const V = 182 * 86400, c1 = Math.max(ahora, inicio + V), c0 = c1 - V;
   const meses = []; for (let m = 0; m < 12; m++) { const t = Date.UTC(anio, m, 1) / 1000 - Date.UTC(anio, 0, 1) / 1000; if (t >= c0 && t <= c1) meses.push([t, MESES[m]]); }
   const cmaxCultivo = Math.max(50, ...cultivo.flatMap((h) => [h.fruto, h.hojas, h.tallo]));
   const fmax = techo(cmaxCultivo * 1.05);
@@ -80,7 +80,7 @@ export function Graficas({ historial, cultivo, inicio, ajustes, anio }) {
           { nombre: "calefacción (40 kW)", color: C.calef, datos: historial.map((h) => ({ t: h.t, v: (h.calef / 40) * 100 })) },
           { nombre: "CO₂ (10 kg/h)", color: C.iny, datos: historial.map((h) => ({ t: h.t, v: (h.co2iny / 10) * 100 })), ancho: 1 },
         ]} />
-      <Grafica W={window.innerWidth > 760 ? 620 : 300} titulo="Cultivo, últimos 3 meses" unidad="g/m² de carbohidrato" min={0} max={fmax} t0={c0} t1={c1} ejeX={meses}
+      <Grafica W={window.innerWidth > 760 ? 620 : 300} titulo="Cultivo, últimos 6 meses" unidad="g/m² de carbohidrato" min={0} max={fmax} t0={c0} t1={c1} ejeX={meses}
         series={[{ nombre: "fruto", color: C.fruto, datos: serie("fruto", cultivo), ancho: 2 }, { nombre: "hojas", color: C.hojas, datos: serie("hojas", cultivo), ancho: 1 }, { nombre: "tallo", color: C.tallo, datos: serie("tallo", cultivo), ancho: 1 }]} />
     </div>
   );
