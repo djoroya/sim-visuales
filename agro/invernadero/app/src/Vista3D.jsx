@@ -120,7 +120,7 @@ function construye(escena) {
   const faldon = Math.hypot(W / 2, CUMBRERA - H), pendiente = Math.atan2(CUMBRERA - H, W / 2);
   // cada faldón: la parte fija y cuatro ventanas cenitales abatibles junto a la cumbrera, con marco
   // de aluminio que se tiñe de ámbar al abrirse, para que se note
-  const VENT = 2.2, fijo = faldon - VENT, N_VENT = 4, LARGO_VENT = (L - 2) / N_VENT - 0.25;
+  const VENT = 3.4, fijo = faldon - VENT, N_VENT = 4, LARGO_VENT = (L - 2) / N_VENT - 0.25;
   o.marcoVentana = new THREE.MeshStandardMaterial({ color: "#5b6b7d", metalness: 0.5, roughness: 0.4, emissive: "#f59e0b", emissiveIntensity: 0 });
   o.vidrioVentana = new THREE.MeshPhysicalMaterial({ color: "#cfe9ff", transparent: true, opacity: 0.38, roughness: 0.08, metalness: 0.15, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false });
   o.ventanas = [];
@@ -143,7 +143,7 @@ function construye(escena) {
       const hoja = new THREE.Mesh(new THREE.PlaneGeometry(LARGO_VENT, VENT), o.vidrioVentana);
       hoja.rotation.x = -Math.PI / 2; hoja.position.z = (lado * VENT) / 2; marco.add(hoja);
       // marco: dos largueros y dos travesaños
-      const g = 0.09, larguero = new THREE.BoxGeometry(LARGO_VENT, g, g), traves = new THREE.BoxGeometry(g, g, VENT);
+      const g = 0.13, larguero = new THREE.BoxGeometry(LARGO_VENT, g, g), traves = new THREE.BoxGeometry(g, g, VENT);
       for (const z of [0, lado * VENT]) { const b = new THREE.Mesh(larguero, o.marcoVentana); b.position.z = z; b.castShadow = true; marco.add(b); }
       for (const x of [-LARGO_VENT / 2, LARGO_VENT / 2]) { const b = new THREE.Mesh(traves, o.marcoVentana); b.position.set(x, 0, (lado * VENT) / 2); b.castShadow = true; marco.add(b); }
       o.ventanas.push({ marco, lado, base: lado * pendiente });
