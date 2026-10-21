@@ -4,6 +4,7 @@ import "@xyflow/react/dist/style.css";
 import { useSimulacion, TIEMPOS } from "./simulacion.js";
 import { PIEZAS, FLUJOS, TIPOS } from "./piezas.js";
 import { Graficas } from "./Graficas.jsx";
+import { Calendario } from "./Calendario.jsx";
 import { lazy, Suspense } from "react";
 // three.js solo se descarga si se abre la vista 3D
 const Vista3D = lazy(() => import("./Vista3D.jsx").then((m) => ({ default: m.Vista3D })));
@@ -134,7 +135,8 @@ export default function App() {
         <label>Tiempo <select value={sim.tiempo} onChange={(e) => sim.setTiempo(e.target.value)}>
           {Object.entries(TIEMPOS).map(([k, v]) => <option key={k} value={k}>{v.nombre}</option>)}</select></label>
         <label>Empieza en <select value={sim.inicio} onChange={(e) => sim.setInicio(+e.target.value)}>
-          {TIEMPOS[sim.tiempo].inicios.map(([d, m]) => <option key={d} value={d}>{m}</option>)}</select></label>
+          {TIEMPOS[sim.tiempo].inicios.map(([d, m]) => <option key={d} value={d}>{m}</option>)}
+          {!TIEMPOS[sim.tiempo].inicios.some(([d]) => d === sim.inicio) && <option value={sim.inicio}>{fecha(sim.inicio * 86400 - 86400, TIEMPOS[sim.tiempo].anio).split(",")[0]}</option>}</select></label>
         <button onClick={sim.reinicia}>Reiniciar</button>
         <span className="reloj">{vista && sim.listo ? fecha(vista.t, TIEMPOS[sim.tiempo].anio) : "cargando…"}</span>
       </div>
@@ -144,6 +146,7 @@ export default function App() {
         {ajustes.calefaccion && <label>a <input type="range" min="8" max="22" step="0.5" value={ajustes.consignaCalef} onChange={cambia("consignaCalef")} /> <output>{ajustes.consignaCalef} °C</output></label>}
         <label>CO₂ <input type="range" min="0" max="10" step="0.5" value={ajustes.co2} onChange={cambia("co2")} /> <output>{ajustes.co2} kg/h</output></label>
       </div>
+      {vista && sim.listo && <Calendario t={vista.t} rango={sim.rango} anio={TIEMPOS[sim.tiempo].anio} saltar={(d) => { sim.setInicio(d); sim.setEnMarcha(true); }} />}
       <div className="cuerpo">
         <div className="diagrama">
           <div className="pestanas">

@@ -27,6 +27,7 @@ export function useSimulacion() {
   const cercano = (k, dia) => TIEMPOS[k].inicios.reduce((a, b) => (Math.abs(b[0] - dia) < Math.abs(a[0] - dia) ? b : a))[0];
   const [inicio, setInicio] = useState(() => cercano(TIEMPOS[par.get("tiempo")] ? par.get("tiempo") : "hortimed", +(par.get("inicio") || 105)));   // día del año en que empieza (por defecto, mediados de abril)
   const [latitud, setLatitud] = useState(null);
+  const [rango, setRango] = useState(null);          // primer y último instante con datos de tiempo (s)
   const s = useRef({ clima: null, t: 0, y: null, historial: [], flujos: {}, ultimaVista: 0 });
   const setTiempo = (k) => {                       // al cambiar de datos, el inicio pasa al mes más parecido
     setInicio(cercano(k, inicio));
@@ -49,7 +50,7 @@ export function useSimulacion() {
   // datos de tiempo
   useEffect(() => {
     setListo(false);
-    fetch(TIEMPOS[tiempo].archivo).then((r) => r.json()).then((d) => { s.current.clima = creaClima(d); setLatitud(d.latitud ?? null); setListo(true); });
+    fetch(TIEMPOS[tiempo].archivo).then((r) => r.json()).then((d) => { s.current.clima = creaClima(d); setLatitud(d.latitud ?? null); setRango({ ini: d.t0 || 0, fin: s.current.clima.fin }); setListo(true); });
   }, [tiempo]);
   useEffect(() => { if (listo) reinicia(inicio); }, [listo, inicio, latitud]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -78,7 +79,7 @@ export function useSimulacion() {
   const ajRef = useRef(aj()); useEffect(() => { ajRef.current = aj(); }, [aj]);
 
   // latitud: la de los datos, o la de GES si no la traen
-  return { listo, tiempo, setTiempo, latitud: latitud ?? 53.193583, vista, enMarcha, setEnMarcha, velocidad, setVelocidad, ajustes, setAjustes, inicio, setInicio, reinicia: () => { reinicia(inicio); setEnMarcha(true); } };
+  return { listo, tiempo, setTiempo, rango, latitud: latitud ?? 53.193583, vista, enMarcha, setEnMarcha, velocidad, setVelocidad, ajustes, setAjustes, inicio, setInicio, reinicia: () => { reinicia(inicio); setEnMarcha(true); } };
 }
 
 function muestrea(st) {

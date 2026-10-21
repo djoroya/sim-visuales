@@ -4,11 +4,15 @@
 // áreas de GES (paredes largas de 75 m², testeros de 40 m², faldones de 135 m², suelo de 250 m²) y
 // su volumen de 1000 m³. Las paredes largas miran al SE y al NO, como en el modelo.
 //
-// El sol se coloca con la fecha, la hora (solar) y la latitud de la simulación; el cielo, las
-// ventanas cenitales, la condensación, la calefacción y el tamaño de las plantas siguen al modelo.
+// El sol se coloca con la fecha, la hora (solar) y la latitud de la simulación. El cielo es un
+// modelo físico de dispersión atmosférica (Preetham, el `Sky` de three.js): el color, el disco del
+// sol y el halo salen de la altura del sol, y la turbidez, de lo nublado que esté según los datos.
+// Ese mismo cielo ilumina la escena (mapa de entorno). Las ventanas cenitales, la condensación, la
+// calefacción y el tamaño de las plantas siguen al modelo.
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { Sky } from "three/examples/jsm/objects/Sky.js";
 
 const L = 25, W = 10, H = 3, CUMBRERA = 5, T_K = 273.15;
 const rad = Math.PI / 180;
@@ -23,24 +27,28 @@ export function posicionSol(t, latitud) {
   if (w > 0) az = 2 * Math.PI - az;
   return { az, elev };
 }
-const R_SOL = 20;                                  // radio de la cúpula en que se dibuja el sol
-function halo() {
-  const c = document.createElement("canvas"); c.width = c.height = 128;
-  const g = c.getContext("2d"), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.25, "rgba(255,240,200,0.5)"); gr.addColorStop(1, "rgba(255,220,150,0)");
-  g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
-  return new THREE.CanvasTexture(c);
-}
 // x = este, z = sur, y = arriba
 const direccion = (az, elev) => new THREE.Vector3(Math.sin(az) * Math.cos(elev), Math.sin(elev), -Math.cos(az) * Math.cos(elev));
 
 const mezcla = (a, b, f) => new THREE.Color(a).lerp(new THREE.Color(b), Math.min(Math.max(f, 0), 1));
-function colorCielo(elev) {                      // noche → crepúsculo → día
+function colorHorizonte(elev, nubes) {           // para la niebla: el color del cielo junto al horizonte
   const e = elev / rad;
-  if (e < -8) return new THREE.Color("#070d19");
-  if (e < 0) return mezcla("#070d19", "#3a3550", (e + 8) / 8);
-  if (e < 8) return mezcla("#3a3550", "#e59a62", e / 8).lerp(new THREE.Color("#8fbde6"), Math.max(0, (e - 4) / 8));
-  return mezcla("#8fbde6", "#6fa9e0", (e - 8) / 40);
+  let c;
+  if (e < -8) c = new THREE.Color("#05080f");
+  else if (e < 0) c = mezcla("#05080f", "#3b3a4d", (e + 8) / 8);
+  else if (e < 10) c = mezcla("#3b3a4d", "#d9a27a", e / 5).lerp(new THREE.Color("#b9cbe0"), Math.max(0, (e - 4) / 6));
+  else c = new THREE.Color("#b9cbe0");
+  return e > 0 ? c.lerp(new THREE.Color("#a7aeb6"), 0.6 * nubes) : c;
+}
+function texturaHierba() {                          // ruido de hierba que se repite por el suelo
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const g = c.getContext("2d"); g.fillStyle = "#5f7d3a"; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 9000; i++) {
+    const v = Math.random(); g.fillStyle = `rgba(${70 + 60 * v | 0},${100 + 60 * v | 0},${40 + 30 * v | 0},0.5)`;
+    g.fillRect(Math.random() * 256, Math.random() * 256, 1.5, 3);
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(600, 600);
+  t.anisotropy = 8; return t;
 }
 const colorTemperatura = (T) => mezcla("#3b82f6", "#f97316", (T - 5) / 25);   // 5 °C azul … 30 °C naranja
 
@@ -60,13 +68,11 @@ function etiqueta(texto, { tam = 48, color = "#1f2937", fondo = null } = {}) {
 function construye(escena) {
   const o = {};
 
-  // suelo: un disco de hierba que se funde con el fondo
-  const c = document.createElement("canvas"); c.width = c.height = 512;
-  const g = c.getContext("2d"), gr = g.createRadialGradient(256, 256, 30, 256, 256, 256);
-  gr.addColorStop(0, "#8fb35a"); gr.addColorStop(0.55, "#a9c47c"); gr.addColorStop(1, "rgba(200,214,180,0)");
-  g.fillStyle = gr; g.fillRect(0, 0, 512, 512);
-  const texSuelo = new THREE.CanvasTexture(c); texSuelo.colorSpace = THREE.SRGBColorSpace;
-  o.suelo = new THREE.Mesh(new THREE.CircleGeometry(70, 64), new THREE.MeshStandardMaterial({ map: texSuelo, transparent: true, roughness: 1 }));
+  // cielo físico y suelo de hierba hasta el horizonte (la niebla los une)
+  o.cieloFisico = new Sky(); o.cieloFisico.scale.setScalar(5000); escena.add(o.cieloFisico);
+  Object.assign(o.cieloFisico.material.uniforms.mieCoefficient, { value: 0.005 });
+  Object.assign(o.cieloFisico.material.uniforms.mieDirectionalG, { value: 0.8 });
+  o.suelo = new THREE.Mesh(new THREE.CircleGeometry(2500, 64), new THREE.MeshStandardMaterial({ map: texturaHierba(), roughness: 1 }));
   o.suelo.rotation.x = -Math.PI / 2; o.suelo.receiveShadow = true; escena.add(o.suelo);
 
   // puntos cardinales
@@ -154,21 +160,15 @@ function construye(escena) {
   cota(V(-L / 2, 0.03, W / 2 + 1.2), V(L / 2, 0.03, W / 2 + 1.2), "25 m", V(0, 0.5, 0.6));
   cota(V(L / 2 + 1.2, 0.03, -W / 2), V(L / 2 + 1.2, 0.03, W / 2), "10 m", V(0.8, 0.5, 0));
 
-  // sol, estrellas y luces
-  o.solDisco = new THREE.Mesh(new THREE.SphereGeometry(1.2, 24, 16), new THREE.MeshBasicMaterial({ color: "#ffe9a8", fog: false }));
-  o.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo(), color: "#ffd58a", transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending }));
-  o.halo.scale.set(10, 10, 1); o.solDisco.add(o.halo);
-  escena.add(o.solDisco);
-  // recorrido del sol durante el día de la simulación (se recalcula al cambiar de día)
-  o.recorrido = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: "#ffe2a0", dashSize: 1, gapSize: 0.8, transparent: true, opacity: 0.7, fog: false }));
-  escena.add(o.recorrido); o.diaRecorrido = null;
-  const p = []; for (let i = 0; i < 700; i++) { const a = Math.random() * 2 * Math.PI, e = Math.asin(Math.random()); p.push(...direccion(a, e).multiplyScalar(120).toArray()); }
-  o.estrellas = new THREE.Points(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(p, 3)), new THREE.PointsMaterial({ color: "#ffffff", size: 0.5, transparent: true, opacity: 0 }));
+  // estrellas y luces
+  const p = []; for (let i = 0; i < 1500; i++) { const a = Math.random() * 2 * Math.PI, e = Math.asin(0.03 + 0.97 * Math.random()); p.push(...direccion(a, e).multiplyScalar(2000).toArray()); }
+  o.estrellas = new THREE.Points(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(p, 3)),
+    new THREE.PointsMaterial({ color: "#ffffff", size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }));
   escena.add(o.estrellas);
   o.luzSol = new THREE.DirectionalLight("#fff4dc", 2.5); o.luzSol.castShadow = true;
   o.luzSol.shadow.mapSize.set(2048, 2048); Object.assign(o.luzSol.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22, near: 1, far: 120 });
   o.luzSol.shadow.bias = -0.0005; escena.add(o.luzSol, o.luzSol.target);
-  o.cielo = new THREE.HemisphereLight("#bcd7f2", "#6b7d4a", 0.6); escena.add(o.cielo);
+  o.cielo = new THREE.HemisphereLight("#bcd7f2", "#4b5d32", 0.3); escena.add(o.cielo);
   o.calor = new THREE.PointLight("#ff6a3d", 0, 30); o.calor.position.set(0, 0.8, 0); inv.add(o.calor);
   return o;
 }
@@ -180,47 +180,55 @@ export function Vista3D({ vista, latitud }) {
     const el = caja.current;
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.55;
     el.appendChild(renderer.domElement);
-    const escena = new THREE.Scene(); escena.fog = new THREE.Fog("#8fbde6", 60, 150);
-    const camara = new THREE.PerspectiveCamera(50, 1, 0.5, 400); camara.position.set(-21, 5, 29);
+    const escena = new THREE.Scene(); escena.fog = new THREE.FogExp2("#b9cbe0", 0.0035);
+    const camara = new THREE.PerspectiveCamera(50, 1, 0.5, 10000); camara.position.set(-22, 4.5, 30);
     const controles = new OrbitControls(camara, renderer.domElement);
-    controles.target.set(0, 7.5, 2); controles.enableDamping = true; controles.maxPolarAngle = Math.PI / 2 - 0.05; controles.minDistance = 10; controles.maxDistance = 90;
+    controles.target.set(0, 4, 2); controles.enableDamping = true; controles.maxPolarAngle = Math.PI / 2 - 0.05; controles.minDistance = 10; controles.maxDistance = 90;
     controles.enableZoom = true;
     const o = construye(escena);
-    estado.current = { o, escena };
+    // el cielo también ilumina: un mapa de entorno con solo el cielo, que se rehace cuando cambia
+    const pmrem = new THREE.PMREMGenerator(renderer), escenaCielo = new THREE.Scene(), cieloEntorno = new Sky();
+    cieloEntorno.scale.setScalar(5000); escenaCielo.add(cieloEntorno);
+    let entorno = null, clave = "";
+    const rehaceEntorno = (u) => {
+      const k = `${u.sunPosition.value.toArray().map((v) => v.toFixed(2))}|${u.turbidity.value.toFixed(0)}`;
+      if (k === clave) return; clave = k;
+      for (const n of ["sunPosition", "turbidity", "rayleigh"]) cieloEntorno.material.uniforms[n].value = u[n].value.clone?.() ?? u[n].value;
+      if (entorno) entorno.dispose();
+      entorno = pmrem.fromScene(escenaCielo); escena.environment = entorno.texture;
+    };
+    estado.current = { o, escena, renderer, rehaceEntorno };
     const tam = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h); camara.aspect = w / h; camara.fov = w / h < 0.8 ? 62 : 50; camara.updateProjectionMatrix(); };   // en vertical, más ángulo
     tam(); const ro = new ResizeObserver(tam); ro.observe(el);
     let raf; const bucle = () => { controles.update(); renderer.render(escena, camara); raf = requestAnimationFrame(bucle); }; bucle();
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); controles.dispose(); renderer.dispose(); el.removeChild(renderer.domElement); };
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); controles.dispose(); entorno?.dispose(); pmrem.dispose(); renderer.dispose(); el.removeChild(renderer.domElement); };
   }, []);
 
   // cada vez que avanza la simulación
   useEffect(() => {
     if (!vista || !estado.current) return;
-    const { o, escena } = estado.current, f = vista.flujos, y = vista.y;
+    const { o, escena, renderer, rehaceEntorno } = estado.current, f = vista.flujos, y = vista.y;
     const { az, elev } = posicionSol(vista.t, latitud);
     const d = direccion(az, elev);
-    o.solDisco.position.copy(d).multiplyScalar(R_SOL); o.solDisco.visible = elev > -0.05;
-    o.halo.material.opacity = Math.min(Math.max(f.sol_exterior / 500 / 250, 0.25), 1);
-    const dia = Math.ceil(vista.t / 86400);
-    if (dia !== o.diaRecorrido) {
-      const pts = [];
-      for (let h = 0; h <= 24; h += 0.1) { const sp = posicionSol((dia - 1) * 86400 + h * 3600, latitud); if (sp.elev > -0.02) pts.push(direccion(sp.az, sp.elev).multiplyScalar(R_SOL)); }
-      o.recorrido.geometry.dispose(); o.recorrido.geometry = new THREE.BufferGeometry().setFromPoints(pts); o.recorrido.computeLineDistances();
-      o.diaRecorrido = dia;
-    }
-    o.recorrido.material.opacity = elev > 0 ? 0.7 : 0.25;
     o.luzSol.position.copy(d).multiplyScalar(50);
-    // intensidad: la radiación del modelo (nubes incluidas), no solo la altura del sol
-    const sol = Math.max(f.sol_exterior / 500, 0);
-    o.luzSol.intensity = elev > 0 ? 0.3 + 2.6 * Math.min(sol / 300, 1) : 0;
+    // nubes: la radiación de los datos frente a la de un cielo despejado con el sol a esa altura
+    // (la «que ve» la cubierta en GES es ~0,4 de la global)
+    const sol = Math.max(f.sol_exterior / 500, 0), despejado = 0.4 * 1000 * Math.max(Math.sin(elev), 0) ** 1.15;
+    const nubes = elev > 3 * rad ? 1 - Math.min(Math.max(sol / Math.max(despejado, 1), 0), 1) : 0;
+    const u = o.cieloFisico.material.uniforms;
+    u.sunPosition.value.copy(d); u.turbidity.value = 2 + 9 * nubes; u.rayleigh.value = 2 - 1.2 * nubes;
+    // ya de noche cerrada, el modelo de cielo deja una franja parda: mejor un fondo oscuro liso
+    o.cieloFisico.visible = elev > -9 * rad; escena.background = o.cieloFisico.visible ? null : new THREE.Color("#04070d");
+    rehaceEntorno(u);
+    renderer.toneMappingExposure = elev > 0 ? 0.55 - 0.15 * nubes : 0.55;
+    o.luzSol.intensity = elev > 0 ? 3.2 * (1 - 0.85 * nubes) * Math.min(elev / (6 * rad), 1) : 0;
     o.luzSol.color = mezcla("#ff9a55", "#fff4dc", elev / (15 * rad));
-    const cielo = colorCielo(elev);
-    if (elev > 0 && sol < 60) cielo.lerp(new THREE.Color("#9aa6b2"), 0.5 * (1 - sol / 60));   // día cubierto: cielo gris
-    escena.background = cielo; escena.fog.color = cielo;
-    o.cielo.intensity = 0.3 + 0.45 * Math.min(Math.max(elev / (20 * rad), 0), 1);
-    o.estrellas.material.opacity = Math.min(Math.max(-elev / (10 * rad), 0), 1);
+    escena.fog.color = colorHorizonte(elev, nubes);
+    // de noche, una luz de luna tenue para que se vea el invernadero
+    o.cielo.color.set(elev > 0 ? "#bcd7f2" : "#5a6f9e"); o.cielo.intensity = elev > 0 ? 0.25 : 0.55;
+    o.estrellas.material.opacity = Math.min(Math.max(-elev / (8 * rad), 0), 1) * 0.9;
 
     // ventanas cenitales: de 0 a 30 renovaciones por hora, hasta 35° de apertura
     const apertura = Math.min(Math.max((f.renovaciones_h - 1.5) / 28.5, 0), 1) * 35 * rad;

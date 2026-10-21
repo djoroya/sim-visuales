@@ -51,3 +51,13 @@ table.flujos td { padding: 3px 4px; border-top: 1px solid #22385a; } table.flujo
   background: rgba(9, 20, 38, 0.72); color: #dbe6f3; font-size: 12px; padding: 6px 10px; border-radius: 6px; pointer-events: none; }
 .vista3d canvas { display: block; touch-action: none; }
 .cargando { display: grid; place-items: center; height: 100%; color: #9fb3cc; }
+
+/* calendario: disco de estaciones y barra del periodo con datos */
+.calendario { display: flex; align-items: center; gap: 12px; margin: 4px 0 10px; }
+.disco { width: 96px; height: 96px; flex: none; overflow: visible; }
+.barra-cal { position: relative; flex: 1; height: 40px; border-radius: 6px; overflow: hidden; cursor: pointer; background: #0f2240; }
+.barra-cal .franja { position: absolute; top: 0; bottom: 0; opacity: 0.28; }
+.barra-cal .hecho { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255, 255, 255, 0.08); pointer-events: none; }
+.barra-cal .cursor { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: #fff; box-shadow: 0 0 6px rgba(255,255,255,0.7); pointer-events: none; }
+.barra-cal .mes { position: absolute; top: 0; bottom: 0; border-left: 1px solid rgba(232, 238, 246, 0.25); padding: 2px 0 0 4px; font-size: 11px; color: #c9d6e6; pointer-events: none; }
+.barra-cal .anio { position: absolute; right: 6px; bottom: 2px; font-size: 10px; color: #8fa3bd; pointer-events: none; }
