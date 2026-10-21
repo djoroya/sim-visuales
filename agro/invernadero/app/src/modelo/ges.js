@@ -51,13 +51,16 @@ const rad = Math.PI / 180, sind = (x) => Math.sin(x * rad), cosd = (x) => Math.c
  * minuto y se toma la fila ceil(t/60), sin interpolar dentro del minuto).
  */
 export function creaClima(tiempo) {
-  const h = tiempo.horas, nh = h.length, filas = tiempo.filasMinuto, paso = (nh - 1) / (filas - 1);
+  // t0: segundos desde el 1 de enero en que empieza la tabla (0 en la de GES)
+  const h = tiempo.horas, nh = h.length, filas = tiempo.filasMinuto, paso = (nh - 1) / (filas - 1), t0 = tiempo.t0 || 0;
   const fila = new Float64Array(20);
-  return (t) => {
-    const n = Math.max(Math.ceil(t / 60), 1), x = (n - 1) * paso, i = Math.min(Math.floor(x), nh - 2), f = x - i;
+  const clima = (t) => {
+    const n = Math.max(Math.ceil((t - t0) / 60), 1), x = Math.min((n - 1) * paso, nh - 1), i = Math.min(Math.floor(x), nh - 2), f = x - i;
     for (let c = 0; c < 20; c++) { const v = h[i][c] + f * (h[i + 1][c] - h[i][c]); fila[c] = c >= 2 ? Math.max(v, 0) : v; }
     return fila;
   };
+  clima.fin = t0 + (nh - 1) * 3600;                // último instante con datos
+  return clima;
 }
 
 export function estadoInicial(clima, t0 = 0) {
@@ -119,7 +122,8 @@ export function derivadas(t, y, clima, aj = AJUSTES, flujos = null) {
   const eqn_time = -7.13 * cosd(gamma) - 1.84 * sind(gamma) - 0.69 * cosd(2 * gamma) + 9.92 * sind(2 * gamma);
   const az = (360 * (((t / 3600) % 24) + eqn_time / 60 - 12)) / 24;
   const delta = 0.38 - 0.77 * cosd(gamma) + 23.27 * cosd(gamma);
-  const angle = Math.asin(sind(latitude) * sind(delta) + cosd(latitude) * cosd(delta) * cosd(az)) / rad;
+  const lat = aj.latitud ?? latitude;
+  const angle = Math.asin(sind(lat) * sind(delta) + cosd(lat) * cosd(delta) * cosd(az)) / rad;
   let direct = 0, diffuse = 0;
   for (let k = 0; k < 8; k++) { direct += 0.5 * SurfaceArea[k] * cl[4 + k]; diffuse += 0.5 * SurfaceArea[k] * cl[12 + k]; }
   const QS_int_rNIR = tau_c_NIR * direct, QS_int_rVIS = tau_c_VIS * direct, QS_int_fNIR = tau_c_NIR * diffuse, QS_int_fVIS = tau_c_VIS * diffuse;

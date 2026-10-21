@@ -6,6 +6,14 @@ import { pasoROS2 } from "./modelo/integrador.js";
 
 const T_K = 273.15, PASO = 60, MUESTRA = 600, DIAS_HISTORIAL = 4;
 
+// dos juegos de datos de tiempo: el de HortiMED (Zenodo, 2018) y el de muestra del modelo GES (Inglaterra)
+export const TIEMPOS = {
+  hortimed: { nombre: "HortiMED 2018", archivo: "datos/tiempo-hortimed.json", anio: 2018,
+    inicios: [[47, "febrero"], [105, "abril"], [166, "junio"], [196, "julio"]] },
+  ges: { nombre: "Inglaterra (GES)", archivo: "datos/tiempo.json", anio: 2021,
+    inicios: [[15, "enero"], [105, "abril"], [196, "julio"], [288, "octubre"]] },
+};
+
 export function useSimulacion() {
   const [listo, setListo] = useState(false);
   const [vista, setVista] = useState(null);          // lo que se dibuja (se actualiza ~20 veces por segundo)
@@ -14,10 +22,19 @@ export function useSimulacion() {
   // ?calefaccion=1&co2=5&inicio=15 en la URL: para enlazar un caso concreto
   const par = new URLSearchParams(location.search);
   const [ajustes, setAjustes] = useState({ ventilacion: 25, calefaccion: par.get("calefaccion") === "1", consignaCalef: 16, co2: +(par.get("co2") || 0) });
-  const [inicio, setInicio] = useState(+(par.get("inicio") || 105));   // día del año en que empieza (por defecto, mediados de abril)
+  // ?tiempo=ges: los datos de tiempo de muestra del modelo original
+  const [tiempo, setTiempoBase] = useState(TIEMPOS[par.get("tiempo")] ? par.get("tiempo") : "hortimed");
+  const cercano = (k, dia) => TIEMPOS[k].inicios.reduce((a, b) => (Math.abs(b[0] - dia) < Math.abs(a[0] - dia) ? b : a))[0];
+  const [inicio, setInicio] = useState(() => cercano(TIEMPOS[par.get("tiempo")] ? par.get("tiempo") : "hortimed", +(par.get("inicio") || 105)));   // día del año en que empieza (por defecto, mediados de abril)
+  const [latitud, setLatitud] = useState(null);
   const s = useRef({ clima: null, t: 0, y: null, historial: [], flujos: {}, ultimaVista: 0 });
+  const setTiempo = (k) => {                       // al cambiar de datos, el inicio pasa al mes más parecido
+    setInicio(cercano(k, inicio));
+    setTiempoBase(k);
+  };
 
-  const aj = useCallback(() => ({ ...AJUSTES, T_sp_vent: ajustes.ventilacion + T_K, calefaccion: ajustes.calefaccion, T_sp_calef: ajustes.consignaCalef + T_K, added_CO2: ajustes.co2 }), [ajustes]);
+  const aj = useCallback(() => ({ ...AJUSTES, T_sp_vent: ajustes.ventilacion + T_K, calefaccion: ajustes.calefaccion, T_sp_calef: ajustes.consignaCalef + T_K, added_CO2: ajustes.co2,
+    ...(latitud != null && { latitud }) }), [ajustes, latitud]);
 
   const reinicia = useCallback((dia) => {
     const st = s.current; if (!st.clima) return;
@@ -31,9 +48,10 @@ export function useSimulacion() {
 
   // datos de tiempo
   useEffect(() => {
-    fetch("datos/tiempo.json").then((r) => r.json()).then((tiempo) => { s.current.clima = creaClima(tiempo); setListo(true); });
-  }, []);
-  useEffect(() => { if (listo) reinicia(inicio); }, [listo, inicio]);   // eslint-disable-line react-hooks/exhaustive-deps
+    setListo(false);
+    fetch(TIEMPOS[tiempo].archivo).then((r) => r.json()).then((d) => { s.current.clima = creaClima(d); setLatitud(d.latitud ?? null); setListo(true); });
+  }, [tiempo]);
+  useEffect(() => { if (listo) reinicia(inicio); }, [listo, inicio, latitud]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // bucle
   useEffect(() => {
@@ -44,7 +62,8 @@ export function useSimulacion() {
       const st = s.current, dt = Math.min((ahora - anterior) / 1000, 0.1); anterior = ahora;
       acumulado += dt * velocidad * 3600;
       let pasos = 0;
-      while (acumulado >= PASO && pasos < 600) {
+      if (st.t + PASO > st.clima.fin) { setEnMarcha(false); return; }   // se acabaron los datos de tiempo
+      while (acumulado >= PASO && pasos < 600 && st.t + PASO <= st.clima.fin) {
         st.y = pasoROS2(f, st.t, st.y, PASO); st.t += PASO; acumulado -= PASO; pasos++;
         if (st.t % MUESTRA === 0) { st.flujos = {}; derivadas(st.t, st.y, st.clima, ajRef.current, st.flujos); muestrea(st); }
       }
@@ -58,7 +77,7 @@ export function useSimulacion() {
   // los ajustes se leen en cada paso sin reiniciar el bucle
   const ajRef = useRef(aj()); useEffect(() => { ajRef.current = aj(); }, [aj]);
 
-  return { listo, vista, enMarcha, setEnMarcha, velocidad, setVelocidad, ajustes, setAjustes, inicio, setInicio, reinicia: () => reinicia(inicio) };
+  return { listo, tiempo, setTiempo, vista, enMarcha, setEnMarcha, velocidad, setVelocidad, ajustes, setAjustes, inicio, setInicio, reinicia: () => { reinicia(inicio); setEnMarcha(true); } };
 }
 
 function muestrea(st) {

@@ -17,6 +17,8 @@ aquí; con ella apagada, el modelo es el original.
 | `app/src/modelo/ges.js` | El modelo en JavaScript (devuelve también los flujos de cada instante) |
 | `app/src/modelo/integrador.js` | Rosenbrock de segundo orden (sistema rígido), paso de 60 s |
 | `app/prueba/compara.mjs` | JavaScript frente a la solución precisa de Python |
+| `python/zenodo_clima.py` | Tiempo de HortiMED (Zenodo) al formato del visor: hora solar, directa/difusa por cara (Erbs), cielo (Berdahl–Martin con nubosidad) |
+| `app/prueba/experimento.mjs [ges]` | Dos semanas de invierno: sin calefacción, con calefacción y con CO₂ |
 | `app/` | El visor (React + Vite + React Flow): `npm install && npm run build` |
 
 Comprobaciones:
@@ -30,3 +32,15 @@ Comprobaciones:
 
 Para reproducir la comparación con el original: `gh repo clone EECi/GES tmp/ges` y
 `python python/ges.py tmp/ges`.
+
+## Datos de tiempo
+
+- `app/public/datos/tiempo-hortimed.json` (por defecto en el visor): tiempo exterior de las
+  simulaciones de HortiMED, 15 feb – 9 ago 2018. Fuente: J. Oroya, *Climate and Crop variables
+  of tomato greenhouse simulation*, Zenodo, 2022, [10.5281/zenodo.6697044](https://doi.org/10.5281/zenodo.6697044),
+  CC-BY 4.0. Se usan solo temperatura, humedad, viento y radiación global; los últimos días
+  (valores imposibles) se descartan. Latitud (43° N) e inclinación de los tejados (25°) supuestas.
+  Para regenerarlo: `ds.csv` en `tmp/zenodo/` y
+  `python python/zenodo_clima.py tmp/zenodo/ds.csv app/public/datos/tiempo-hortimed.json`.
+- `app/public/datos/tiempo.json`: el tiempo de muestra de GES (`SampleWeather.csv`, MIT), con el
+  que se hacen las comparaciones con el original.

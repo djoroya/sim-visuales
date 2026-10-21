@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ReactFlow, Handle, Position, BaseEdge, getBezierPath, ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useSimulacion } from "./simulacion.js";
+import { useSimulacion, TIEMPOS } from "./simulacion.js";
 import { PIEZAS, FLUJOS, TIPOS } from "./piezas.js";
 import { Graficas } from "./Graficas.jsx";
 
@@ -109,8 +109,8 @@ function Panel({ vista, seleccion }) {
 }
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
-function fecha(t) {
-  const d = new Date(Date.UTC(2021, 0, 1) + t * 1000);
+function fecha(t, anio) {
+  const d = new Date(Date.UTC(anio, 0, 1) + t * 1000);
   return `${d.getUTCDate()} de ${MESES[d.getUTCMonth()]}, ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
@@ -126,10 +126,12 @@ export default function App() {
         <button onClick={() => sim.setEnMarcha(!sim.enMarcha)}>{sim.enMarcha ? "Pausa" : "Seguir"}</button>
         <label>Velocidad <select value={sim.velocidad} onChange={(e) => sim.setVelocidad(+e.target.value)}>
           {[1, 3, 6, 12, 24].map((v) => <option key={v} value={v}>{v} h/s</option>)}</select></label>
+        <label>Tiempo <select value={sim.tiempo} onChange={(e) => sim.setTiempo(e.target.value)}>
+          {Object.entries(TIEMPOS).map(([k, v]) => <option key={k} value={k}>{v.nombre}</option>)}</select></label>
         <label>Empieza en <select value={sim.inicio} onChange={(e) => sim.setInicio(+e.target.value)}>
-          {[[15, "enero"], [105, "abril"], [196, "julio"], [288, "octubre"]].map(([d, m]) => <option key={d} value={d}>{m}</option>)}</select></label>
+          {TIEMPOS[sim.tiempo].inicios.map(([d, m]) => <option key={d} value={d}>{m}</option>)}</select></label>
         <button onClick={sim.reinicia}>Reiniciar</button>
-        <span className="reloj">{vista ? fecha(vista.t) : "cargando…"}</span>
+        <span className="reloj">{vista && sim.listo ? fecha(vista.t, TIEMPOS[sim.tiempo].anio) : "cargando…"}</span>
       </div>
       <div className="barra">
         <label>Ventanas desde <input type="range" min="15" max="32" step="0.5" value={ajustes.ventilacion} onChange={cambia("ventilacion")} /> <output>{ajustes.ventilacion} °C</output></label>
