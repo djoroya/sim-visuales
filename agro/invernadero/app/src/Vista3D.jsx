@@ -9,10 +9,11 @@
 // sol y el halo salen de la altura del sol, y la turbidez, de lo nublado que esté según los datos.
 // Ese mismo cielo ilumina la escena (mapa de entorno). Las ventanas cenitales, la condensación, la
 // calefacción y el tamaño de las plantas siguen al modelo.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
+import { RACIMOS } from "./simulacion.js";
 
 const L = 25, W = 10, H = 3, CUMBRERA = 5, T_K = 273.15;
 const rad = Math.PI / 180;
@@ -39,6 +40,25 @@ function colorHorizonte(elev, nubes) {           // para la niebla: el color del
   else if (e < 10) c = mezcla("#3b3a4d", "#d9a27a", e / 5).lerp(new THREE.Color("#b9cbe0"), Math.max(0, (e - 4) / 6));
   else c = new THREE.Color("#b9cbe0");
   return e > 0 ? c.lerp(new THREE.Color("#a7aeb6"), 0.6 * nubes) : c;
+}
+// una hoja compuesta de tomate: raquis con foliolos, aplanada (unos 35 cm), que sale del tallo en +x
+const HOJAS_MAX = 18;
+function hojaCompuesta() {
+  const partes = [];
+  const foliolo = (x, z, esc, giro) => {
+    const g = new THREE.CircleGeometry(1, 8); g.scale(0.06 * esc, 0.032 * esc, 1); g.rotateX(-Math.PI / 2); g.rotateY(giro); g.translate(x, -0.02 * x * x * 8, z);
+    partes.push(g);
+  };
+  for (let i = 0; i < 4; i++) { const x = 0.08 + i * 0.075; foliolo(x, 0.045, 1 - i * 0.08, 0.5); foliolo(x, -0.045, 1 - i * 0.08, -0.5); }
+  foliolo(0.38, 0, 1, 0);
+  // fusiona los foliolos en una sola geometría
+  const pos = [], idx = [];
+  for (const g of partes) {
+    const b = pos.length / 3, a = g.attributes.position.array; pos.push(...a);
+    for (const i of g.index.array) idx.push(b + i);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
 }
 function texturaHierba() {                          // ruido de hierba que se repite por el suelo
   const c = document.createElement("canvas"); c.width = c.height = 256;
@@ -140,13 +160,24 @@ function construye(escena) {
   }
 
   // cultivo: cuatro líneas de tomate sobre sacos de sustrato; altura y follaje según el IAF
-  const filas = [-3.6, -1.6, 1.6, 3.6], porFila = 22;
+  const filas = [-3.6, -1.6, 1.6, 3.6], porFila = 40;
   const saco = new THREE.MeshStandardMaterial({ color: "#e5e1d6", roughness: 0.9 });
   for (const z of filas) { const m = new THREE.Mesh(new THREE.BoxGeometry(L - 2, 0.12, 0.3), saco); m.position.set(0, 0.32, z); m.castShadow = m.receiveShadow = true; inv.add(m); }
-  o.hojas = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.32, 1), new THREE.MeshStandardMaterial({ color: "#3f8f3a", roughness: 0.8, flatShading: true }), filas.length * porFila * 3);
-  o.hojas.castShadow = true; o.hojas.receiveShadow = true; inv.add(o.hojas);
+  // cada planta: tallo entutorado (con su hilo hasta el alambre) y hojas compuestas alternas
+  o.hojas = new THREE.InstancedMesh(hojaCompuesta(), new THREE.MeshStandardMaterial({ color: "#3d8a37", roughness: 0.75, side: THREE.DoubleSide }), filas.length * porFila * HOJAS_MAX);
+  o.hojas.castShadow = true; o.hojas.receiveShadow = true; o.hojas.count = 0; inv.add(o.hojas);
+  o.tallos = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.012, 0.016, 1, 6).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: "#5d7a34", roughness: 0.9 }), filas.length * porFila);
+  o.tallos.castShadow = true; inv.add(o.tallos);
+  const hilos = [];
+  for (const z of filas) for (let i = 0; i < porFila; i++) { const x = -L / 2 + 1.3 + (i * (L - 2.6)) / (porFila - 1); hilos.push(x, 0.38, z, x, H - 0.1, z); }
+  inv.add(new THREE.LineSegments(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(hilos, 3)), new THREE.LineBasicMaterial({ color: "#d9d2bf", transparent: true, opacity: 0.35 })));
+  for (const z of filas) barra(V(-L / 2 + 1, H - 0.1, z), V(L / 2 - 1, H - 0.1, z), 0.02);
   o.plantas = [];
   for (const z of filas) for (let i = 0; i < porFila; i++) o.plantas.push([-L / 2 + 1.3 + (i * (L - 2.6)) / (porFila - 1), z, (Math.sin(i * 12.9898 + z * 78.233) * 43758.5453) % 1]);
+
+  // tomates: hasta 14 racimos visibles por planta y 5 frutos por racimo
+  o.tomates = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0 }), o.plantas.length * 14 * 5);
+  o.tomates.castShadow = true; o.tomates.count = 0; inv.add(o.tomates);
 
   // aire interior: un volumen apenas teñido por su temperatura; y la condensación en el vidrio
   o.aire = new THREE.MeshBasicMaterial({ color: "#f97316", transparent: true, opacity: 0.05, depthWrite: false });
@@ -155,7 +186,7 @@ function construye(escena) {
   // cotas, como en un plano
   const cota = (a, b, txt, off) => {
     const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color: "#334155" })); inv.add(l);
-    const s = etiqueta(txt, { tam: 40, color: "#334155" }); s.position.copy(a).add(b).multiplyScalar(0.5).add(off); inv.add(s);
+    const s = etiqueta(txt, { tam: 40, color: "#334155" }); s.position.copy(a).add(b).multiplyScalar(0.5).add(off); inv.add(s); (o.cotas ||= []).push(s, l);
   };
   cota(V(-L / 2, 0.03, W / 2 + 1.2), V(L / 2, 0.03, W / 2 + 1.2), "25 m", V(0, 0.5, 0.6));
   cota(V(L / 2 + 1.2, 0.03, -W / 2), V(L / 2 + 1.2, 0.03, W / 2), "10 m", V(0.8, 0.5, 0));
@@ -175,6 +206,8 @@ function construye(escena) {
 
 export function Vista3D({ vista, latitud }) {
   const caja = useRef(null), estado = useRef(null);
+  const [dentro, setDentro] = useState(() => new URLSearchParams(location.search).get("camara") === "dentro");
+  const cambiaCamara = () => { const k = dentro ? "fuera" : "dentro"; estado.current?.encuadra(k); setDentro(!dentro); };
 
   useEffect(() => {
     const el = caja.current;
@@ -199,7 +232,14 @@ export function Vista3D({ vista, latitud }) {
       if (entorno) entorno.dispose();
       entorno = pmrem.fromScene(escenaCielo); escena.environment = entorno.texture;
     };
-    estado.current = { o, escena, renderer, rehaceEntorno };
+    // dos encuadres: el invernadero entero, o dentro, en el pasillo entre las plantas
+    const encuadres = {
+      fuera: { pos: new THREE.Vector3(-22, 4.5, 30), obj: new THREE.Vector3(0, 4, 2), min: 10 },
+      dentro: { pos: o.inv.localToWorld(new THREE.Vector3(-11.5, 1.7, -0.2)), obj: o.inv.localToWorld(new THREE.Vector3(-4, 0.9, -2.6)), min: 0.5 },
+    };
+    const encuadra = (k) => { const e = encuadres[k]; for (const c of o.cotas) c.visible = k === "fuera"; camara.position.copy(e.pos); controles.target.copy(e.obj); controles.minDistance = e.min; controles.update(); };
+    encuadra(new URLSearchParams(location.search).get("camara") === "dentro" ? "dentro" : "fuera");
+    estado.current = { o, escena, renderer, rehaceEntorno, encuadra };
     const tam = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h); camara.aspect = w / h; camara.fov = w / h < 0.8 ? 62 : 50; camara.updateProjectionMatrix(); };   // en vertical, más ángulo
     tam(); const ro = new ResizeObserver(tam); ro.observe(el);
     let raf; const bucle = () => { controles.update(); renderer.render(escena, camara); raf = requestAnimationFrame(bucle); }; bucle();
@@ -243,27 +283,53 @@ export function Vista3D({ vista, latitud }) {
     const calor = Math.min(f.calefaccion / 40000, 1);
     o.tubos.emissiveIntensity = 1.5 * calor; o.calor.intensity = 25 * calor;
 
-    // plantas: altura y follaje con el índice de área foliar
-    const lai = f.LAI, alto = 0.35 + 0.45 * Math.min(lai, 4), m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
+    // plantas: la altura y el número de hojas siguen al índice de área foliar (hojas = C_leaf)
+    const lai = f.LAI, alto = Math.min(0.3 + 0.55 * lai, H - 0.5), nh = Math.min(Math.max(Math.round(4.5 * lai), 2), HOJAS_MAX);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), e = new THREE.Euler();
     let k = 0;
-    for (const [x, z, r] of o.plantas) for (let n = 0; n < 3; n++) {
-      const tam = (0.45 + 0.25 * Math.min(lai, 4)) * (0.85 + 0.3 * Math.abs(r));
-      s.set(tam, tam * 1.25, tam); p.set(x, 0.38 + (alto * (n + 0.6)) / 3, z + 0.08 * Math.sin(r * 9 + n));
-      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r * 6 + n);
-      o.hojas.setMatrixAt(k++, m.compose(p, q, s));
+    o.plantas.forEach(([x, z, r], ip) => {
+      o.tallos.setMatrixAt(ip, m.compose(p.set(x, 0.38, z), q.identity(), s.set(1, alto, 1)));
+      for (let i = 0; i < nh; i++) {
+        const h = 0.38 + ((i + 0.6) / nh) * alto, giro = i * 2.4 + r * 6;      // hojas alternas en espiral
+        const tam = 1.25 + 0.6 * (1 - i / nh);                                  // las de abajo, más grandes
+        e.set(0, giro, -0.35 + 0.15 * Math.sin(i + r), "YXZ");
+        o.hojas.setMatrixAt(k++, m.compose(p.set(x, h, z), q.setFromEuler(e), s.set(tam, tam, tam)));
+      }
+    });
+    o.hojas.count = k; o.tallos.instanceMatrix.needsUpdate = true; o.hojas.instanceMatrix.needsUpdate = true;
+
+    // tomates: tamaño con la masa del racimo (6 % de materia seca, ~12 frutos por m² y racimo),
+    // color con su madurez; los racimos más nuevos, más arriba
+    const visibles = (vista.racimos || []).slice(-14), col = new THREE.Color(), verde = new THREE.Color("#5f9e3a"), naranja = new THREE.Color("#e8862e"), rojo = new THREE.Color("#d42a1e");
+    let n = 0;
+    for (const rc of visibles) {
+      const gramos = (rc.masa * 1000) / 0.06 / 12.5, radio = Math.cbrt((3 * Math.max(gramos, 1)) / (4 * Math.PI)) / 100 * 1.3;   // m, algo exagerado para que se vean
+      const mad = Math.min(Math.max((rc.gd - RACIMOS.maduraDesde) / (RACIMOS.maduroEn - RACIMOS.maduraDesde), 0), 1);
+      if (mad < 0.5) col.copy(verde).lerp(naranja, mad * 2); else col.copy(naranja).lerp(rojo, (mad - 0.5) * 2);
+      const altura = Math.min(0.25 + 0.14 * rc.n, alto - 0.15);            // cada racimo, más arriba que el anterior
+      o.plantas.forEach(([x, z, r], ip) => {
+        const lado = (ip + rc.n) % 2 ? 1 : -1;                  // racimos alternos a cada lado de la fila
+        for (let j = 0; j < 5; j++) {
+          p.set(x + 0.045 * (j - 2) + 0.01 * Math.sin(r * 7 + j), 0.38 + altura - 0.035 * Math.abs(j - 2) - 0.03 * (j % 2), z + lado * (0.09 + 0.025 * (j % 2)));
+          s.setScalar(radio * (0.85 + 0.15 * Math.cos(j + rc.n)));
+          o.tomates.setMatrixAt(n, m.compose(p, q.identity(), s)); o.tomates.setColorAt(n, col); n++;
+        }
+      });
     }
-    o.hojas.instanceMatrix.needsUpdate = true;
+    o.tomates.count = n; o.tomates.instanceMatrix.needsUpdate = true; if (o.tomates.instanceColor) o.tomates.instanceColor.needsUpdate = true;
   }, [vista, latitud]);
 
   const f = vista?.flujos, sp = vista ? posicionSol(vista.t, latitud) : null;
   return (
     <div className="vista3d" ref={caja}>
+      <button className="boton-camara" onClick={cambiaCamara}>{dentro ? "Ver el invernadero" : "Entre las plantas"}</button>
       {f && (
         <div className="rotulo3d">
           <span>☀ {sp.elev > 0 ? `${(sp.elev / rad).toFixed(0)}° · ${(f.sol_exterior / 500).toFixed(0)} W/m²` : "noche"}</span>
           <span>fuera {f.T_ext.toFixed(1)} °C</span>
           <span>dentro {(vista.y[1] - T_K).toFixed(1)} °C · {f.HR_int.toFixed(0)} %</span>
           <span>ventanas {f.renovaciones_h.toFixed(1)} renov./h</span>
+          {vista.racimos?.length > 0 && <span>🍅 {vista.racimos.length} racimos, {vista.racimos.filter((r) => r.gd >= RACIMOS.maduroEn).length} maduros · {(vista.y[15] * 1000).toFixed(0)} g/m² de fruto</span>}
           {f.calefaccion > 0 && <span>calefacción {(f.calefaccion / 1000).toFixed(1)} kW</span>}
         </div>
       )}

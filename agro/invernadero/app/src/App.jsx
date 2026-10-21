@@ -131,7 +131,7 @@ export default function App() {
       <div className="barra">
         <button onClick={() => sim.setEnMarcha(!sim.enMarcha)}>{sim.enMarcha ? "Pausa" : "Seguir"}</button>
         <label>Velocidad <select value={sim.velocidad} onChange={(e) => sim.setVelocidad(+e.target.value)}>
-          {[1, 3, 6, 12, 24].map((v) => <option key={v} value={v}>{v} h/s</option>)}</select></label>
+          {[1, 3, 6, 12, 24, 48].map((v) => <option key={v} value={v}>{v} h/s</option>)}</select></label>
         <label>Tiempo <select value={sim.tiempo} onChange={(e) => sim.setTiempo(e.target.value)}>
           {Object.entries(TIEMPOS).map(([k, v]) => <option key={k} value={k}>{v.nombre}</option>)}</select></label>
         <label>Empieza en <select value={sim.inicio} onChange={(e) => sim.setInicio(+e.target.value)}>

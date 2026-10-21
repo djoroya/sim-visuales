@@ -6,6 +6,22 @@ import { pasoROS2 } from "./modelo/integrador.js";
 
 const T_K = 273.15, PASO = 60, MUESTRA = 600, DIAS_HISTORIAL = 4;
 
+// Racimos de tomate: una capa visual encima del modelo, que solo da la masa total de fruto (C_fruit).
+// Lo que crece C_fruit se reparte entre los racimos que aún engordan; cada racimo cuenta los
+// grados-día (base 0 °C, con la temperatura de las hojas) desde que nace, y madura de verde a rojo
+// entre 750 y 1000 °C·día. Sale un racimo nuevo cada 140 °C·día (uno por semana a 20 °C).
+export const RACIMOS = { cadaGD: 140, engordaHasta: 800, maduraDesde: 750, maduroEn: 1000 };
+function actualizaRacimos(st) {
+  const y = st.y, dt = MUESTRA / 86400, gd = Math.max(y[2] - T_K, 0) * dt;
+  for (const r of st.racimos) r.gd += gd;
+  st.gdNuevo += gd;
+  const crece = Math.max(y[15] - st.frutoAnterior, 0); st.frutoAnterior = y[15];
+  if (st.gdNuevo >= RACIMOS.cadaGD && crece > 0) { st.racimos.push({ masa: 0, gd: 0, n: st.racimos.length }); st.gdNuevo = 0; }
+  const jovenes = st.racimos.filter((r) => r.gd < RACIMOS.engordaHasta);
+  if (crece > 0 && !jovenes.length) { const r = { masa: 0, gd: 0, n: st.racimos.length }; st.racimos.push(r); jovenes.push(r); st.gdNuevo = 0; }
+  for (const r of jovenes) r.masa += crece / jovenes.length;
+}
+
 // dos juegos de datos de tiempo: el de HortiMED (Zenodo, 2018) y el de muestra del modelo GES (Inglaterra)
 export const TIEMPOS = {
   hortimed: { nombre: "HortiMED 2018", archivo: "datos/tiempo-hortimed.json", anio: 2018,
@@ -18,9 +34,9 @@ export function useSimulacion() {
   const [listo, setListo] = useState(false);
   const [vista, setVista] = useState(null);          // lo que se dibuja (se actualiza ~20 veces por segundo)
   const [enMarcha, setEnMarcha] = useState(true);
-  const [velocidad, setVelocidad] = useState(3);     // horas simuladas por segundo
-  // ?calefaccion=1&co2=5&inicio=15 en la URL: para enlazar un caso concreto
+  // ?calefaccion=1&co2=5&inicio=15&velocidad=24 en la URL: para enlazar un caso concreto
   const par = new URLSearchParams(location.search);
+  const [velocidad, setVelocidad] = useState(+(par.get("velocidad") || 3));     // horas simuladas por segundo
   const [ajustes, setAjustes] = useState({ ventilacion: 25, calefaccion: par.get("calefaccion") === "1", consignaCalef: 16, co2: +(par.get("co2") || 0) });
   // ?tiempo=ges: los datos de tiempo de muestra del modelo original
   const [tiempo, setTiempoBase] = useState(TIEMPOS[par.get("tiempo")] ? par.get("tiempo") : "hortimed");
@@ -42,6 +58,7 @@ export function useSimulacion() {
     // ?hora=13: empieza a esa hora (para enlazar o capturar un momento concreto)
     const hora = +(new URLSearchParams(location.search).get("hora") || 0);
     st.t = dia * 86400 + hora * 3600; st.y = estadoInicial(st.clima, st.t); st.historial = [];
+    st.racimos = []; st.gdNuevo = RACIMOS.cadaGD; st.frutoAnterior = st.y[15];
     // un primer paso para tener flujos que dibujar
     st.flujos = {}; derivadas(st.t, st.y, st.clima, aj(), st.flujos); muestrea(st);
     setVista(foto(st));
@@ -66,7 +83,7 @@ export function useSimulacion() {
       if (st.t + PASO > st.clima.fin) { setEnMarcha(false); return; }   // se acabaron los datos de tiempo
       while (acumulado >= PASO && pasos < 600 && st.t + PASO <= st.clima.fin) {
         st.y = pasoROS2(f, st.t, st.y, PASO); st.t += PASO; acumulado -= PASO; pasos++;
-        if (st.t % MUESTRA === 0) { st.flujos = {}; derivadas(st.t, st.y, st.clima, ajRef.current, st.flujos); muestrea(st); }
+        if (st.t % MUESTRA === 0) { st.flujos = {}; derivadas(st.t, st.y, st.clima, ajRef.current, st.flujos); muestrea(st); actualizaRacimos(st); }
       }
       if (ahora - st.ultimaVista > 50) { st.flujos = {}; derivadas(st.t, st.y, st.clima, ajRef.current, st.flujos); st.ultimaVista = ahora; setVista(foto(st)); }
       raf = requestAnimationFrame(bucle);
@@ -90,4 +107,4 @@ function muestrea(st) {
   while (st.historial.length && st.historial[0].t < corte) st.historial.shift();
 }
 
-const foto = (st) => ({ t: st.t, y: Array.from(st.y), flujos: { ...st.flujos }, historial: st.historial.slice() });
+const foto = (st) => ({ t: st.t, y: Array.from(st.y), flujos: { ...st.flujos }, historial: st.historial.slice(), racimos: (st.racimos || []).map((r) => ({ ...r })) });

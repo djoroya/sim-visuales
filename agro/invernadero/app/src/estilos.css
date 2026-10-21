@@ -61,3 +61,6 @@ table.flujos td { padding: 3px 4px; border-top: 1px solid #22385a; } table.flujo
 .barra-cal .cursor { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: #fff; box-shadow: 0 0 6px rgba(255,255,255,0.7); pointer-events: none; }
 .barra-cal .mes { position: absolute; top: 0; bottom: 0; border-left: 1px solid rgba(232, 238, 246, 0.25); padding: 2px 0 0 4px; font-size: 11px; color: #c9d6e6; pointer-events: none; }
 .barra-cal .anio { position: absolute; right: 6px; bottom: 2px; font-size: 10px; color: #8fa3bd; pointer-events: none; }
+.boton-camara { position: absolute; top: 8px; right: 8px; z-index: 5; border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer;
+  background: rgba(9, 20, 38, 0.75); color: #dbe6f3; font: inherit; font-size: 13px; }
+.boton-camara:hover { background: #2a4469; }
