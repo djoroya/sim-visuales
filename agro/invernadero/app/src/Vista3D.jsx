@@ -189,7 +189,7 @@ export function Vista3D({ vista, latitud }) {
     controles.enableZoom = true;
     const o = construye(escena);
     estado.current = { o, escena };
-    const tam = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h); camara.aspect = w / h; camara.fov = w / h < 0.8 ? 62 : 50; camara.updateProjectionMatrix();   // en vertical, más ángulo };
+    const tam = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h); camara.aspect = w / h; camara.fov = w / h < 0.8 ? 62 : 50; camara.updateProjectionMatrix(); };   // en vertical, más ángulo
     tam(); const ro = new ResizeObserver(tam); ro.observe(el);
     let raf; const bucle = () => { controles.update(); renderer.render(escena, camara); raf = requestAnimationFrame(bucle); }; bucle();
     return () => { cancelAnimationFrame(raf); ro.disconnect(); controles.dispose(); renderer.dispose(); el.removeChild(renderer.domElement); };
