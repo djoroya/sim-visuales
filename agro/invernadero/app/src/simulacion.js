@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { creaClima, estadoInicial, derivadas, AJUSTES } from "./modelo/ges.js";
 import { pasoROS2 } from "./modelo/integrador.js";
 
-const T_K = 273.15, PASO = 60, MUESTRA = 600, DIAS_HISTORIAL = 4;
+const T_K = 273.15, PASO = 60, MUESTRA = 600, DIAS_HISTORIAL = 4, DIAS_CULTIVO = 120;
 
 // Racimos de tomate: una capa visual encima del modelo, que solo da la masa total de fruto (C_fruit).
 // Lo que crece C_fruit se reparte entre los racimos que aún engordan; cada racimo cuenta los
@@ -44,7 +44,7 @@ export function useSimulacion() {
   const [inicio, setInicio] = useState(() => cercano(TIEMPOS[par.get("tiempo")] ? par.get("tiempo") : "hortimed", +(par.get("inicio") || 105)));   // día del año en que empieza (por defecto, mediados de abril)
   const [latitud, setLatitud] = useState(null);
   const [rango, setRango] = useState(null);          // primer y último instante con datos de tiempo (s)
-  const s = useRef({ clima: null, t: 0, y: null, historial: [], flujos: {}, ultimaVista: 0 });
+  const s = useRef({ clima: null, t: 0, y: null, historial: [], cultivo: [], flujos: {}, ultimaVista: 0 });
   const setTiempo = (k) => {                       // al cambiar de datos, el inicio pasa al mes más parecido
     setInicio(cercano(k, inicio));
     setTiempoBase(k);
@@ -57,8 +57,8 @@ export function useSimulacion() {
     const st = s.current; if (!st.clima) return;
     // ?hora=13: empieza a esa hora (para enlazar o capturar un momento concreto)
     const hora = +(new URLSearchParams(location.search).get("hora") || 0);
-    st.t = dia * 86400 + hora * 3600; st.y = estadoInicial(st.clima, st.t); st.historial = [];
-    st.racimos = []; st.gdNuevo = RACIMOS.cadaGD; st.frutoAnterior = st.y[15];
+    st.t = dia * 86400 + hora * 3600; st.inicio = st.t; st.y = estadoInicial(st.clima, st.t); st.historial = [];
+    st.cultivo = []; st.racimos = []; st.gdNuevo = RACIMOS.cadaGD; st.frutoAnterior = st.y[15];
     // un primer paso para tener flujos que dibujar
     st.flujos = {}; derivadas(st.t, st.y, st.clima, aj(), st.flujos); muestrea(st);
     setVista(foto(st));
@@ -102,9 +102,14 @@ export function useSimulacion() {
 function muestrea(st) {
   const f = st.flujos, y = st.y;
   st.historial.push({ t: st.t, T_ext: f.T_ext, T_int: y[1] - T_K, T_veg: y[2] - T_K, HR_int: f.HR_int, HR_ext: f.HR_ext, CO2: f.CO2_ppm,
-    sol: f.sol_exterior / 500, fruto: y[15] * 1000, calef: f.calefaccion });
+    sol: f.sol_exterior / 500, fruto: y[15] * 1000, calef: f.calefaccion / 1000, renov: f.renovaciones_h, co2iny: f.co2_inyeccion * 3600 });
   const corte = st.t - DIAS_HISTORIAL * 86400;
   while (st.historial.length && st.historial[0].t < corte) st.historial.shift();
+  // el cultivo cambia despacio: una muestra por hora y una ventana larga
+  if (st.t % 3600 === 0 || !st.cultivo.length) {
+    st.cultivo.push({ t: st.t, fruto: y[15] * 1000, hojas: y[16] * 1000, tallo: y[17] * 1000 });
+    while (st.cultivo.length && st.cultivo[0].t < st.t - DIAS_CULTIVO * 86400) st.cultivo.shift();
+  }
 }
 
-const foto = (st) => ({ t: st.t, y: Array.from(st.y), flujos: { ...st.flujos }, historial: st.historial.slice(), racimos: (st.racimos || []).map((r) => ({ ...r })) });
+const foto = (st) => ({ t: st.t, y: Array.from(st.y), flujos: { ...st.flujos }, historial: st.historial.slice(), cultivo: st.cultivo.slice(), inicio: st.inicio, racimos: (st.racimos || []).map((r) => ({ ...r })) });

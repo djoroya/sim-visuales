@@ -3,8 +3,8 @@
 // saltar a otro día.
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const INICIO_MES = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];   // día del año (año no bisiesto)
-// estaciones astronómicas del hemisferio norte: [nombre, día de inicio, color]
-const ESTACIONES = [["invierno", 355, "#5b8def"], ["primavera", 79, "#4fb36b"], ["verano", 172, "#e5b53a"], ["otoño", 266, "#d9733f"]];
+// estaciones astronómicas del hemisferio norte: [nombre, día de inicio, color, icono]
+const ESTACIONES = [["invierno", 355, "#5b8def", "❄️"], ["primavera", 79, "#4fb36b", "🌱"], ["verano", 172, "#e5b53a", "☀️"], ["otoño", 266, "#d9733f", "🍂"]];
 
 export function estacion(dia) {
   let e = ESTACIONES[0];
@@ -40,7 +40,8 @@ function Disco({ dia, horaFrac }) {
         })}
       </g>
       <path d="M50,1 L46,-0 L50,8 L54,-0 Z" fill="#fff" />
-      <text x="50" y="52" fontSize="9" fill="#e8eef6" textAnchor="middle" fontWeight="600">{est[0]}</text>
+      <text x="50" y="44" fontSize="17" textAnchor="middle" dominantBaseline="central">{est[3]}</text>
+      <text x="50" y="62" fontSize="8.5" fill="#e8eef6" textAnchor="middle" fontWeight="600">{est[0]}</text>
     </svg>
   );
 }
@@ -58,7 +59,10 @@ function Barra({ t, rango, anio, saltar }) {
       {ESTACIONES.map((e, i) => {                               // franjas de estación
         const a = Math.max(e[1], d0), b = Math.min(i === 3 ? 355 : ESTACIONES[(i + 1) % 4][1], d1);
         const tramos = e[0] === "invierno" ? [[d0, Math.min(79, d1)], [Math.max(355, d0), d1]] : [[a, b]];
-        return tramos.filter(([p, q]) => q > p).map(([p, q]) => <div key={e[0] + p} className="franja" style={{ left: `${x(p)}%`, width: `${x(q) - x(p)}%`, background: e[2] }} />);
+        return tramos.filter(([p, q]) => q > p).map(([p, q]) => [
+          <div key={e[0] + p} className="franja" style={{ left: `${x(p)}%`, width: `${x(q) - x(p)}%`, background: e[2] }} />,
+          x(q) - x(p) > 6 && <span key={"i" + e[0] + p} className="icono-estacion" style={{ left: `${(x(p) + x(q)) / 2}%` }} title={e[0]}>{e[3]}</span>,
+        ]);
       })}
       {meses.map(([d, i]) => <span key={i} className="mes" style={{ left: `${x(d)}%` }}>{MESES[i]}</span>)}
       <div className="hecho" style={{ width: `${Math.min(Math.max(x(dia), 0), 100)}%` }} />

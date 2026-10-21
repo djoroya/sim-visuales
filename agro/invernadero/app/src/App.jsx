@@ -159,7 +159,7 @@ export default function App() {
         </div>
         <Panel vista={vista} seleccion={seleccion} />
       </div>
-      {vista && <Graficas historial={vista.historial} ajustes={ajustes} />}
+      {vista && <Graficas historial={vista.historial} cultivo={vista.cultivo} inicio={vista.inicio} ajustes={ajustes} anio={TIEMPOS[sim.tiempo].anio} />}
     </div>
   );
 }
