@@ -1,0 +1,9 @@
+{
+  "name": "pila-sofc-por-dentro",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "prueba": "node prueba/compara.mjs"
+  }
+}

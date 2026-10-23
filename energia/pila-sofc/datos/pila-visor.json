@@ -1,0 +1,34 @@
+{
+ "nota": "Pila del visor (python/referencia.py). Caudales en mol/s, K en kmol/(atm·s) referida al H₂.",
+ "N0": 30,
+ "area_cm2": 100.0,
+ "T_K": 1023.15,
+ "Va_m3": 0.002,
+ "Vc_m3": 0.002,
+ "valvula": "igual",
+ "K_an": 5.31833775349039e-07,
+ "K_cat": 2.6655153418448254e-06,
+ "I_nominal_A": 40.0,
+ "utilizacion_nominal": 0.7,
+ "lambda_aire": 4.0,
+ "fraccion_combustible": {
+  "H2": 0.45,
+  "O2": 0.0,
+  "H2O": 0.2,
+  "N2": 0.0,
+  "CO": 0.1,
+  "CH4": 0.05,
+  "CO2": 0.2
+ },
+ "q_combustible_mol_s": 0.01184487960756312,
+ "q_aire_mol_s": 0.059365745049839026,
+ "celda": {
+  "x_agua": 0.021232730416038716,
+  "R_ohm": 0.04285714285714286,
+  "E_ohm": 80000.0,
+  "j0": 0.5902790676507932,
+  "jL": 3.054950576258501,
+  "E_act": 105393.28647287386,
+  "area": 3.5
+ }
+}

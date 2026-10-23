@@ -7,8 +7,8 @@ ideal de la que se mide. La idea viene del modelo de pila que hice en el proyect
 electricidad y calor a un invernadero de tomate. Este repositorio lo reescribe desde las ecuaciones,
 con **datos públicos**: los del proyecto son del consorcio y no se publican.
 
-**Estado: pasos 1 y 2 de 4**: celda en régimen permanente comprobada con medidas, y pila dinámica con
-combustible mixto. Siguen el núcleo en JavaScript y el visor. Plan completo:
+**Estado: pasos 1 a 3 de 4**: celda comprobada con medidas, pila dinámica con combustible mixto y núcleo
+en JavaScript. Falta el visor. Plan completo:
 `personalpage/plans/PLAN_PILA_SOFC.md`.
 
 | Archivo | Qué hace |
@@ -19,6 +19,9 @@ combustible mixto. Siguen el núcleo en JavaScript y el visor. Plan completo:
 | `python/ajuste.py` | Ajuste con 750 y 800 °C y predicción de 700 °C; escribe `datos/celda-ajuste.json` |
 | `python/dinamica.py` | Pila dinámica (traslación de `SOFC_meca` de AGRO-SOFC): ánodo y cátodo con 7 especies, válvulas, combustible mixto H₂/CO/CH₄, Nernst de la mezcla, tensión termoneutra y calor; tensión «original» (N₀E − rI) o «calibrada» (pérdidas del paso 1) |
 | `python/prueba_dinamica.py` | Solución exacta de primer orden, conservación de átomos y coherencia con la celda del paso 1 |
+| `python/referencia.py` | Pila del visor (`datos/pila-visor.json`) y trayectorias de referencia para el JavaScript |
+| `app/src/modelo/` | Núcleo en JavaScript: `termo.js`, `celda.js`, `pila.js` (Runge–Kutta 4) |
+| `app/prueba/compara.mjs` | JavaScript frente a Python (`cd app && npm run prueba`) |
 
 ## Comprobaciones
 
@@ -49,6 +52,15 @@ Pila dinámica (`python python/prueba_dinamica.py`):
   para 30 celdas: el ánodo queda casi en vacío (milésimas de atm) y responde en centésimas de segundo; y
   0,5 m³ de volumen es enorme para una pila así. El visor fija K desde el caudal nominal (1 atm) y un
   volumen de pocos litros, que da segundos de respuesta, como en Padullés.
+
+Núcleo en JavaScript (`npm run prueba` en `app/`), frente a Python con la pila del visor y escalones de
+carga 0 → 30 → 45 → 20 A: tensión de la pila con 2·10⁻⁵ mV de diferencia máxima y presiones parciales con
+3·10⁻¹⁰ de error relativo (paso 0,01 s); 60 s de pila en 50 ms (13 ms con paso 0,05 s, error 10⁻⁴ mV).
+
+La pila del visor (30 celdas de 100 cm², biogás reformado, 70 % de utilización a 40 A, aire λ = 4, 2 L
+por compartimento, τ del ánodo ≈ 2 s) enseña lo que pasa al pedir demasiado: a 30 A da 759 W y 360 W de
+calor; a 45 A (79 % del combustible) el H₂ del ánodo cae a 0,10 atm, la tensión a 0,53 V por celda y la
+potencia **baja** a 712 W mientras el calor sube a 966 W.
 
 A 750 °C, 50 % de H₂ y 2 A (0,57 A/cm²), de una tensión de Nernst de 1,010 V se pierden 71 mV por
 concentración, 86 por resistencia y 41 por activación: quedan 0,812 V.
