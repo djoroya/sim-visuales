@@ -79,3 +79,199 @@ table.flujos td { padding: 3px 4px; border-top: 1px solid #22385a; } table.flujo
 .energia td i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
 .energia tr.total td { border-top: 1px solid #2d4466; padding-top: 4px; font-weight: 600; }
 .energia p { margin: 4px 0 0; }
+
+.agua { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin-top: 10px; padding: 14px; background: var(--navy2); border-radius: 6px; font-size: 12.5px; }
+.agua h3 { margin: 0 0 6px; font-size: 15px; }
+.agua p { margin: 6px 0; }
+.agua .suave { color: var(--suave); }
+.agua label { display: block; margin: 8px 0; }
+.agua strong { color: #38d5db; }
+.agua meter { display: block; width: 100%; height: 14px; accent-color: #38d5db; }
+.agua table { width: 100%; border-collapse: collapse; }
+.agua caption { text-align: left; margin-bottom: 6px; }
+.agua th { text-align: left; font-weight: 400; color: var(--suave); }
+.agua td { padding: 5px 0; border-bottom: 1px solid var(--borde); }
+.agua .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; padding-left: 8px; }
+@media (max-width: 760px) { .agua { grid-template-columns: 1fr; } }
+
+[hidden] { display: none !important; }
+.modos-simulador { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--borde); padding-bottom: 10px; }
+.modos-simulador button[aria-pressed=true] { color: #38d5db; border-color: #38d5db; }
+.planificador { padding: 4px 0 12px; }
+.cabecera-plan { max-width: 720px; margin-bottom: 22px; }
+.etiqueta-plan { font-size: 11px; letter-spacing: .12em; color: #38d5db; }
+.cabecera-plan h1 { font-size: clamp(25px, 4vw, 38px); line-height: 1.15; font-weight: 600; margin: 10px 0; }
+.cabecera-plan p { font-size: 16px; color: #b9c9dc; }
+.planificador fieldset { border: 1px solid var(--borde); border-radius: 8px; padding: 14px; margin: 0 0 16px; min-width: 0; }
+.planificador legend { padding: 0 8px; font-size: 15px; font-weight: 600; }
+.planificador label { display: flex; flex-direction: column; gap: 5px; color: #b9c9dc; font-size: 12px; min-width: 0; }
+.planificador input:not([type=checkbox]), .planificador select { width: 100%; min-width: 0; border: 1px solid #385273; border-radius: 4px; background: #0d1f36; color: #e8eef6; padding: 8px; font: inherit; font-size: 14px; }
+.planificador input:disabled, .planificador select:disabled { opacity: .45; }
+.planificador .suave { color: var(--suave); font-size: 12px; }
+.parametros-campana { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tarifas { margin-top: 12px; border-top: 1px solid var(--borde); padding-top: 10px; }
+.tarifas summary { cursor: pointer; color: #b9c9dc; }
+.politicas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.politica { background: var(--navy2); border-radius: 6px; border-top: 3px solid var(--color-politica); padding: 12px; }
+.nombre-politica input { font-weight: 600 !important; color: var(--color-politica) !important; }
+.campos-politica { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.planificador .check { display: flex; flex-direction: row; align-items: center; margin: 14px 0; }
+.acciones-campana { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.boton-comparar { background: #38d5db; color: #0d1f36; border: 0; padding: 11px 16px; font-weight: 600; }
+.planificador button:disabled { opacity: .6; cursor: wait; }
+.planificador progress { width: 100%; height: 8px; margin-top: 12px; accent-color: #38d5db; }
+.limite-modelo { padding: 12px 0; border-bottom: 1px solid var(--borde); color: var(--suave); font-size: 12px; }
+.error-campana { padding: 12px; border: 1px solid #e8604f; border-radius: 6px; color: #ffb5aa; }
+.pendiente-campana { background: #3a321d; color: #f2cf89; padding: 10px 12px; border-radius: 6px; }
+.titulo-resultados { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; align-items: center; margin: 20px 0 14px; }
+.titulo-resultados h2 { margin: 0; font-size: 22px; }
+.titulo-resultados p { margin: 4px 0 0; color: var(--suave); }
+.acciones-exportar { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabla-scroll { max-width: 100%; overflow: auto; }
+.tabla-campana { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tabla-campana th, .tabla-campana td { padding: 10px 8px; border-bottom: 1px solid var(--borde); }
+.tabla-campana th { text-align: left; font-weight: 400; }
+.tabla-campana thead th { background: var(--navy2); }
+.tabla-campana thead button { border: 0; background: none; padding: 0; text-align: left; font-weight: 600; }
+.tabla-campana td { text-align: right; font-variant-numeric: tabular-nums; }
+.celda-activa { background: #142e46; }
+.graficos-campana { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+.graficos-campana > div { padding: 12px; border-radius: 6px; background: var(--navy2); min-width: 0; }
+.graficos-campana h3 { font-size: 13px; font-weight: 400; margin: 0 0 36px; color: #b9c9dc; }
+.graficos-campana label { flex-direction: row; align-items: center; justify-content: space-between; }
+.graficos-campana select { width: auto; }
+.grafico-campana { display: block; width: 100%; margin-top: 14px; overflow: visible; }
+.grafico-campana text { font: 12px system-ui; fill: #b9c9dc; }
+.punto-campana { cursor: pointer; }
+.detalle-seleccion { border-left: 3px solid; padding: 8px 12px; }
+@media (max-width: 900px) { .politicas { grid-template-columns: 1fr; } .parametros-campana { grid-template-columns: 1fr 1fr; } .graficos-campana { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .planificador fieldset { padding: 10px; } .tabla-campana { min-width: 580px; } .parametros-campana { gap: 10px; } .acciones-campana .boton-comparar { width: 100%; } .graficos-campana label { flex-direction: column; align-items: stretch; } }
+
+/* Vista principal: exterior, estado y control; detalle bajo demanda. */
+.app-compacta .modos-simulador { margin-bottom: 10px; padding-bottom: 8px; }
+.cabecera-sistema { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.cabecera-sistema h1 { font-size: 22px; margin: 0 0 3px; font-weight: 600; }
+.cabecera-sistema p { margin: 0; color: var(--suave); font-size: 12px; }
+.reproduccion-sistema { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.reproduccion-sistema label { color: var(--suave); font-size: 12px; }
+.variables-sistema { display: grid; grid-template-columns: .85fr 1.15fr 1.25fr; gap: 10px; }
+.grupo-sistema { border: 1px solid var(--borde); border-radius: 6px; padding: 12px; min-width: 0; }
+.grupo-sistema h2 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.grupo-sistema h2 > span { display: inline-grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; background: #213b59; margin-right: 5px; font-size: 11px; }
+.grupo-sistema > p { margin: 0 0 12px; color: var(--suave); font-size: 11px; }
+.exterior-sistema { border-style: dashed; background: #102238; }
+.estado-sistema { background: var(--navy2); }
+.control-sistema { background: #102e32; border-color: #27565a; }
+.control-sistema h2 { color: #72d6b9; }
+.datos-sistema { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 8px; }
+.dato-sistema { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.dato-sistema > span { font-size: 11px; color: #a9bdd5; }
+.dato-sistema > strong { font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.dato-sistema small { font-size: 11px; font-weight: 400; margin-left: 4px; color: var(--suave); }
+.mandos-sistema { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 10px; }
+.mandos-sistema > label { display: flex; flex-direction: column; gap: 3px; color: #a9c6c7; font-size: 11px; min-width: 0; }
+.mandos-sistema input:not([type=checkbox]), .mandos-sistema select { width: 100%; min-width: 0; padding: 4px 6px; background: #0d1f36; border: 1px solid #365c60; border-radius: 4px; color: var(--on); font: inherit; font-size: 13px; }
+.mandos-sistema input:disabled { opacity: .45; }
+.calef-check span { display: flex; align-items: center; gap: 3px; }
+.calef-check input[type=checkbox] { margin: 0; accent-color: #72d6b9; }
+.visual-sistema { display: grid; grid-template-columns: minmax(260px, .85fr) minmax(0, 1.6fr); gap: 10px; margin-top: 10px; }
+.escena-compacta { height: 278px; border-radius: 6px; background: var(--navy2); overflow: hidden; }
+.escena-compacta .boton-camara { padding: 4px 9px; font-size: 12px; }
+.zoom-escena { position: absolute; bottom: 8px; right: 8px; display: flex; gap: 4px; }
+.zoom-escena button { width: 30px; height: 30px; padding: 0; font-size: 20px; background: rgba(9,20,38,.8); }
+.flujos-resumen { --flujo: #f59e0b; min-width: 0; padding: 12px; border-radius: 6px; background: var(--navy2); }
+.flujos-agua { --flujo: #38d5db; }
+.flujos-co2 { --flujo: #72d6b9; }
+.cabecera-flujos { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.cabecera-flujos h2 { font-size: 13px; font-weight: 500; margin: 0; }
+.selector-flujos { display: flex; gap: 3px; }
+.selector-flujos button { padding: 3px 8px; font-size: 12px; }
+.selector-flujos button[aria-pressed=true] { border-color: var(--flujo); color: var(--flujo); }
+.transferencia { display: grid; grid-template-columns: minmax(85px, 1fr) minmax(150px, 1.8fr) minmax(85px, 1fr); align-items: center; gap: 8px; margin: 4px 0; min-height: 27px; font-size: 11px; }
+.origen-flujo { text-align: right; color: #d1deee; }
+.destino-flujo { color: #d1deee; }
+.trayecto-flujo { display: flex; flex-direction: column; align-items: center; gap: 0; color: #a9bdd5; min-width: 0; text-align: center; font-size: 10px; }
+.trayecto-flujo strong { color: var(--flujo); font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.trayecto-flujo i { display: block; width: 100%; height: 10px; font-style: normal; color: var(--flujo); line-height: 6px; overflow: hidden; position: relative; text-align: right; font-size: 24px; }
+.trayecto-flujo i::before { content: ''; position: absolute; top: 5px; left: 0; right: 9px; border-top: 1px solid var(--flujo); }
+.transferencia.inactiva { opacity: .45; }
+.nota-flujos { color: var(--suave); font-size: 10px; line-height: 1.4; margin: 9px 0 0; }
+.fecha-sistema { color: var(--suave); font-size: 11px; margin: 6px 0; }
+.totales-resumen { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 22px; border-top: 1px solid var(--borde); padding: 10px 0; }
+.totales-resumen > span { color: var(--suave); font-size: 11px; }
+.totales-resumen strong { font-size: 15px; font-variant-numeric: tabular-nums; font-weight: 500; }
+.totales-resumen small { color: var(--suave); font-weight: 400; font-size: 11px; }
+.ajustes-contexto, .detalle-sistema { border-top: 1px solid var(--borde); padding: 9px 0; font-size: 12px; }
+.ajustes-contexto summary, .detalle-sistema > summary { cursor: pointer; color: #a9bdd5; }
+.ajustes-contexto > .barra, .detalle-sistema .cuerpo { margin-top: 12px; }
+@media (max-width: 760px) {
+  .variables-sistema { grid-template-columns: 1fr 1fr; }
+  .control-sistema { grid-column: 1 / -1; }
+  .mandos-sistema { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .visual-sistema { grid-template-columns: 1fr; }
+  .escena-compacta { height: 200px; }
+  .cabecera-sistema h1 { font-size: 19px; }
+}
+@media (max-width: 440px) {
+  .grupo-sistema { padding: 9px; }
+  .grupo-sistema h2 { font-size: 13px; }
+  .grupo-sistema > p { min-height: 30px; margin-bottom: 8px; }
+  .control-sistema > p { min-height: 0; }
+  .dato-sistema > strong { font-size: 16px; }
+  .datos-sistema { gap: 8px 5px; }
+  .transferencia { grid-template-columns: minmax(60px,1fr) minmax(125px,1.7fr) minmax(60px,1fr); gap: 4px; font-size: 10px; }
+  .flujos-resumen { padding: 10px; }
+  .trayecto-flujo { font-size: 9px; }
+  .totales-resumen { gap: 5px 14px; }
+  .totales-resumen > span { width: 100%; }
+}
+
+/* Dependencias macroscópicas, con los controles dentro de React Flow. */
+.dependencias-sistema { margin: 0 0 10px; }
+.lienzo-dependencias { height: 260px; width: 100%; background: #0d1f36; border-radius: 6px; }
+.lienzo-dependencias.vertical { height: 800px; }
+.nodo-dependencia .grupo-sistema { width: 100%; min-height: 235px; margin: 0; }
+.nodo-dependencia .control-sistema { grid-column: auto; }
+.nodo-dependencia .mandos-sistema { grid-template-columns: 1fr 1fr; }
+.nodo-dependencia .grupo-sistema > p { min-height: 0; }
+.lienzo-dependencias.vertical .nodo-dependencia-exterior .grupo-sistema { min-height: 155px; }
+.lienzo-dependencias.vertical .nodo-dependencia-estado .grupo-sistema { min-height: 205px; }
+.lienzo-dependencias.vertical .nodo-dependencia-control .grupo-sistema { min-height: 235px; }
+.lienzo-dependencias .react-flow__handle { opacity: 1; width: 7px; height: 7px; min-width: 7px; min-height: 7px; background: #a9bdd5; border: 1px solid #0d1f36; }
+.lienzo-dependencias .nodo-dependencia-control .react-flow__handle { background: #72d6b9; }
+.lienzo-dependencias .react-flow__node { cursor: default; }
+.lienzo-dependencias .react-flow__edge { cursor: pointer; }
+.leyenda-dependencias { margin: 2px 8px 0; min-height: 30px; color: var(--suave); font-size: 11px; line-height: 1.5; }
+.leyenda-dependencias > span { color: #72d6b9; font-size: 15px; padding-right: 4px; }
+.leyenda-dependencias > .medida-dependencia { color: #a99bff; padding-left: 12px; }
+
+.grafo-transferencias { height: 290px; width: 100%; }
+.grafo-transferencias.vertical { height: 460px; }
+.nodo-materia { height: 46px; display: grid; place-items: center; text-align: center; border: 1px solid #3a5a86; border-radius: 7px; padding: 5px; background: #1a3355; color: #e8eef6; font-size: 13px; }
+.nodo-materia strong { font-weight: 500; }
+.materia-exterior { border-style: dashed; background: #102238; }
+.materia-control { background: #102e32; border-color: #38766a; }
+.grafo-transferencias .react-flow__handle { opacity: 0; }
+.grafo-transferencias .react-flow__edge { cursor: pointer; }
+.visual-sistema { align-items: start; }
+
+.estado-actuadores { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 10px 0; }
+.estado-actuadores article { padding: 10px 12px; background: #13294a; border: 1px solid #2d4466; border-radius: 6px; min-width: 0; }
+.estado-actuadores h3 { margin: 0 0 7px; font-size: 13px; font-weight: 500; }
+.estado-actuadores h3 span { display: block; color: #a9bdd5; font-size: 11px; }
+.estado-actuadores h3 .activo { color: #f59e0b; }
+.estado-actuadores p, .estado-actuadores summary { font-size: 11px; color: #a9bdd5; margin: 5px 0; }
+.estado-actuadores strong { color: #e8eef6; }
+.estado-actuadores label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #a9bdd5; margin: 4px 0; }
+.estado-actuadores select, .estado-actuadores input { width: 100%; min-width: 0; }
+.estado-actuadores input[type=number] { color: #e8eef6; background: #0d1f36; border: 1px solid #2d4466; padding: 4px; border-radius: 4px; }
+.fallo-visor { padding: 18px; color: #a9bdd5; font-size: 13px; }
+@media(max-width:760px) { .estado-actuadores { grid-template-columns: 1fr; } }
+.flujos-carbono { --flujo: #72d6b9; }
+.grafo-transferencias.grafo-carbono { height: 460px; }
+.grafo-carbono .nodo-materia { height: 68px; }
+.nodo-materia small { color: #a9bdd5; font-size: 10px; line-height: 1.3; }
+@media(max-width:760px) { .grafo-transferencias.grafo-carbono { height: 600px; } }
+.grafo-transferencias .react-flow__edgelabel-renderer { z-index: 10; }
+.etiqueta-caudal { position: absolute; pointer-events: all; font: 12px/1.3 system-ui,sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; background: #13294a; border: 1px solid #2d4466; border-radius: 4px; padding: 3px 5px; cursor: pointer; }
+.etiqueta-caudal:hover, .etiqueta-caudal:focus-visible { border-color: currentColor; }

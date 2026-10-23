@@ -1,7 +1,8 @@
 // La simulación: el modelo avanza en tiempo real (pasos de 60 s con el integrador implícito),
 // guarda una muestra cada 10 minutos y expone el estado y los flujos del último paso.
 import { useEffect, useRef, useState, useCallback } from "react";
-import { creaClima, estadoInicial, derivadas, actuadores, AJUSTES } from "./modelo/ges.js";
+import { creaClima, actuadores, AJUSTES } from "./modelo/ges.js";
+import { estadoInicial, derivadas } from "./modelo/agua.js";
 import { pasoROS2 } from "./modelo/integrador.js";
 
 const T_K = 273.15, PASO = 60, MUESTRA = 600, DIAS_HISTORIAL = 4, DIAS_CULTIVO = 130;
@@ -13,13 +14,14 @@ const T_K = 273.15, PASO = 60, MUESTRA = 600, DIAS_HISTORIAL = 4, DIAS_CULTIVO =
 // Energía: el modelo da el calor que entra al aire; cómo se produce lo elige el visor.
 //   caldera de gas: gas = calor / 0,90; eléctrica = bomba de circulación, 1,5 % del calor
 //   bomba de calor: eléctrica = calor / COP, con COP = 2 + 0,1·T_ext (entre 1,5 y 4,5)
-export const EQUIPOS = { caldera: "caldera de gas", bomba: "bomba de calor" };
-export const cop = (T_ext) => Math.min(Math.max(2 + 0.1 * T_ext, 1.5), 4.5);
+import { acumulaRecursos, acumulaMovimiento } from "./modelo/recursos.js";
+export { EQUIPOS, cop } from "./modelo/recursos.js";
 function acumulaEnergia(st, aj, t, y) {
-  const [Q, co2] = actuadores(t, y, aj), e = st.energia, kWh = (Q * PASO) / 3.6e6;
-  e.calor += kWh; e.co2 += co2 * PASO;
-  if (aj.equipo === "bomba") e.electrica += kWh / cop(st.clima(t)[0]);
-  else { e.gas += kWh / 0.9; e.electrica += 0.015 * kWh; }
+  const [calor, co2] = actuadores(t, y, aj);
+  acumulaRecursos(st.energia, { calor, co2, equipo: aj.equipo, exterior: st.clima(t)[0], segundos: PASO, arranqueWh: aj.arranqueWh });
+  const f = {}; derivadas(t, y, st.clima, aj, f);
+  acumulaMovimiento(st.energia, 'ventanas', f.apertura, aj.motorVentanasWh);
+  acumulaMovimiento(st.energia, 'pantalla', f.sombreo_cierre, aj.motorPantallaWh);
 }
 
 export const RACIMOS = { cadaGD: 140, engordaHasta: 800, maduraDesde: 750, maduroEn: 1000 };
@@ -44,12 +46,13 @@ export const TIEMPOS = {
 
 export function useSimulacion() {
   const [listo, setListo] = useState(false);
+  const [errorCarga, setErrorCarga] = useState(null), [recarga, setRecarga] = useState(0);
   const [vista, setVista] = useState(null);          // lo que se dibuja (se actualiza ~20 veces por segundo)
   const [enMarcha, setEnMarcha] = useState(true);
   // ?calefaccion=1&co2=5&inicio=15&velocidad=24 en la URL: para enlazar un caso concreto
   const par = new URLSearchParams(location.search);
   const [velocidad, setVelocidad] = useState(+(par.get("velocidad") || 3));     // horas simuladas por segundo
-  const [ajustes, setAjustes] = useState({ equipo: par.get("equipo") === "bomba" ? "bomba" : "caldera", ventilacion: 25, calefaccion: par.get("calefaccion") === "1", consignaCalef: 16, co2: +(par.get("co2") || 0) });
+  const [ajustes, setAjustes] = useState({ equipo: ["bomba", "caldera", "electrico"].includes(par.get("equipo")) ? par.get("equipo") : "electrico", arranqueWh: 0, motorVentanasWh: 0, motorPantallaWh: 0, ventanasModo: "auto", aperturaVentanas: 0, sombreoModo: "retirada", sombreo: 50, riego: "auto", dosisRiego: 4, ventilacion: 25, calefaccion: par.get("calefaccion") === "1", consignaCalef: 16, co2: +(par.get("co2") || 0) });
   // ?tiempo=ges: los datos de tiempo de muestra del modelo original
   const [tiempo, setTiempoBase] = useState(TIEMPOS[par.get("tiempo")] ? par.get("tiempo") : "hortimed");
   const cercano = (k, dia) => TIEMPOS[k].inicios.reduce((a, b) => (Math.abs(b[0] - dia) < Math.abs(a[0] - dia) ? b : a))[0];
@@ -62,7 +65,7 @@ export function useSimulacion() {
     setTiempoBase(k);
   };
 
-  const aj = useCallback(() => ({ ...AJUSTES, T_sp_vent: ajustes.ventilacion + T_K, calefaccion: ajustes.calefaccion, T_sp_calef: ajustes.consignaCalef + T_K, added_CO2: ajustes.co2, equipo: ajustes.equipo,
+  const aj = useCallback(() => ({ ...AJUSTES, arranqueWh: ajustes.arranqueWh, motorVentanasWh: ajustes.motorVentanasWh, motorPantallaWh: ajustes.motorPantallaWh, ventanasModo: ajustes.ventanasModo, aperturaVentanas: ajustes.aperturaVentanas, sombreoModo: ajustes.sombreoModo, sombreo: ajustes.sombreo, riego: ajustes.riego, dosisRiego: ajustes.dosisRiego, T_sp_vent: ajustes.ventilacion + T_K, calefaccion: ajustes.calefaccion, T_sp_calef: ajustes.consignaCalef + T_K, added_CO2: ajustes.co2, equipo: ajustes.equipo,
     ...(latitud != null && { latitud }) }), [ajustes, latitud]);
 
   const reinicia = useCallback((dia) => {
@@ -76,11 +79,21 @@ export function useSimulacion() {
     setVista(foto(st));
   }, [aj]);
 
-  // datos de tiempo
+  // Carga con cancelación: un cambio rápido de clima no puede reponer una respuesta antigua.
   useEffect(() => {
-    setListo(false);
-    fetch(TIEMPOS[tiempo].archivo).then((r) => r.json()).then((d) => { s.current.clima = creaClima(d); setLatitud(d.latitud ?? null); setRango({ ini: d.t0 || 0, fin: s.current.clima.fin }); setListo(true); });
-  }, [tiempo]);
+    const controller = new AbortController();
+    setListo(false); setVista(null); setErrorCarga(null);
+    fetch(TIEMPOS[tiempo].archivo, { signal: controller.signal })
+      .then((r) => { if (!r.ok) throw new Error('No se pudo descargar el clima'); return r.json(); })
+      .then((d) => {
+        if (controller.signal.aborted) return;
+        if (!Array.isArray(d.horas) || d.horas.length < 2) throw new Error('Datos de clima incompletos');
+        s.current.clima = creaClima(d); setLatitud(d.latitud ?? null);
+        setRango({ ini: d.t0 || 0, fin: s.current.clima.fin }); setListo(true);
+      })
+      .catch((e) => { if (e.name !== 'AbortError') setErrorCarga('No se ha podido cargar el clima. Reintenta la descarga.'); });
+    return () => controller.abort();
+  }, [tiempo, recarga]);
   useEffect(() => { if (listo) reinicia(inicio); }, [listo, inicio, latitud]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // bucle
@@ -108,13 +121,21 @@ export function useSimulacion() {
   // los ajustes se leen en cada paso sin reiniciar el bucle
   const ajRef = useRef(aj()); useEffect(() => { ajRef.current = aj(); }, [aj]);
 
+  // Los actuadores y sus flujos también responden cuando se editan con el visor en pausa.
+  useEffect(() => {
+    const st = s.current;
+    if (!listo || !st.y) return;
+    st.flujos = {}; derivadas(st.t, st.y, st.clima, aj(), st.flujos); setVista(foto(st));
+  }, [aj, listo]);
+
   // latitud: la de los datos, o la de GES si no la traen
-  return { listo, tiempo, setTiempo, rango, latitud: latitud ?? 53.193583, vista, enMarcha, setEnMarcha, velocidad, setVelocidad, ajustes, setAjustes, inicio, setInicio, reinicia: () => { reinicia(inicio); setEnMarcha(true); } };
+  return { listo, errorCarga, reintentaCarga: () => setRecarga((n) => n + 1), tiempo, setTiempo, rango, latitud: latitud ?? 53.193583, vista, enMarcha, setEnMarcha, velocidad, setVelocidad, ajustes, setAjustes, inicio, setInicio, reinicia: () => { reinicia(inicio); setEnMarcha(true); } };
 }
 
 function muestrea(st) {
   const f = st.flujos, y = st.y;
   st.historial.push({ t: st.t, T_ext: f.T_ext, T_int: y[1] - T_K, T_veg: y[2] - T_K, HR_int: f.HR_int, HR_ext: f.HR_ext, CO2: f.CO2_ppm,
+    aguaSustrato: y[21] / 250, aguaPlantas: y[22] / 250, riego: f.agua_riego * 3600, transpiracion: f.vapor_transpiracion * 3600, hidratacion: 100 * y[22] / f.agua_objetivo,
     sol: f.sol_exterior / 500, fruto: y[15] * 1000, calef: f.calefaccion / 1000, renov: f.renovaciones_h, co2iny: f.co2_inyeccion * 3600 });
   const corte = st.t - DIAS_HISTORIAL * 86400;
   while (st.historial.length && st.historial[0].t < corte) st.historial.shift();

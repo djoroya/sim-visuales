@@ -80,6 +80,10 @@ export function Graficas({ historial, cultivo, inicio, ajustes, anio }) {
           { nombre: "calefacción (40 kW)", color: C.calef, datos: historial.map((h) => ({ t: h.t, v: (h.calef / 40) * 100 })) },
           { nombre: "CO₂ (10 kg/h)", color: C.iny, datos: historial.map((h) => ({ t: h.t, v: (h.co2iny / 10) * 100 })), ancho: 1 },
         ]} />
+      <Grafica titulo="Reservas de agua" unidad="L/m² de suelo" min={0} max={Math.max(10, techo(Math.max(...historial.flatMap((h) => [h.aguaSustrato, h.aguaPlantas]))))} t0={t0} t1={ahora} ejeX={dias}
+        series={[{ nombre: "sustrato", color: "#38d5db", datos: serie("aguaSustrato") }, { nombre: "plantas", color: C.veg, datos: serie("aguaPlantas") }]} />
+      <Grafica titulo="Riego y transpiración" unidad="L/h" min={0} max={Math.max(10, techo(Math.max(...historial.flatMap((h) => [h.riego, h.transpiracion]))))} t0={t0} t1={ahora} ejeX={dias}
+        series={[{ nombre: "riego", color: "#38d5db", datos: serie("riego") }, { nombre: "transpiración", color: C.veg, datos: serie("transpiracion") }]} />
       <Grafica W={window.innerWidth > 760 ? 620 : 300} titulo="Cultivo, últimos 4 meses" unidad="g/m² de carbohidrato" min={0} max={fmax} t0={c0} t1={c1} ejeX={meses}
         series={[{ nombre: "fruto", color: C.fruto, datos: serie("fruto", cultivo), ancho: 2 }, { nombre: "hojas", color: C.hojas, datos: serie("hojas", cultivo), ancho: 1 }, { nombre: "tallo", color: C.tallo, datos: serie("tallo", cultivo), ancho: 1 }]} />
     </div>

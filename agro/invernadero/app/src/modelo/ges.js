@@ -1,3 +1,4 @@
+import { cierreSombreo, aperturaVentanas } from './control-actuadores.js';
 // Modelo mecanístico de un invernadero de una zona, sin calefacción y ventilado, con tomate.
 // Traslación a JavaScript de GES (EECi/GES, Energy Efficient Cities Initiative, Universidad de
 // Cambridge, 2019, licencia MIT), comprobada contra la traslación fiel a Python (python/ges.py),
@@ -67,7 +68,9 @@ export function creaClima(tiempo) {
 export function actuadores(t, y, aj = AJUSTES) {
   const Q_calef = aj.calefaccion ? aj.P_calef * Math.min(Math.max(aj.T_sp_calef - y[1], 0), 1) : 0;
   const hora = Math.floor(t / 3600) + 1, hd = (hora / 24 - Math.floor(hora / 24)) * 24;
-  return [Q_calef, hd > 6 && hd < 20 ? aj.added_CO2 / 3600 : 0];
+  const h = ((t / 3600) % 24 + 24) % 24;
+  const co2Activo = aj.horarioCO2 ? h >= aj.horarioCO2[0] && h < aj.horarioCO2[1] : hd > 6 && hd < 20;
+  return [Q_calef, co2Activo ? aj.added_CO2 / 3600 : 0];
 }
 
 export function estadoInicial(clima, t0 = 0) {
@@ -98,7 +101,9 @@ export function derivadas(t, y, clima, aj = AJUSTES, flujos = null) {
   const QP_i_f = Math.max(((((A_f * H_fg) / (rho_i * c_i)) * Sh) / Le) * (lam / d_f) * (C_w - sat_conc(T_f)), 0);
   [Nu, Sh] = lamorturb(((g * d_m ** 3) / (T_i * nu ** 2)) * Math.abs(T_m - T_i), (int_air_speed * d_m) / nu);
   const QV_m_i = (0.75 * A_m * Nu * lam * (T_m - T_i)) / d_m;
-  const QP_m_i = ((((0.25 * A_m * H_fg) / (rho_i * c_i)) * Sh) / Le) * (lam / d_m) * (sat_conc(T_m) - C_w);
+  const QP_m_pot = ((((0.25 * A_m * H_fg) / (rho_i * c_i)) * Sh) / Le) * (lam / d_m) * (sat_conc(T_m) - C_w);
+  // Factores opcionales de la ampliación hídrica; sin ellos se conserva el GES original.
+  const QP_m_i = QP_m_pot * (QP_m_pot > 0 ? (aj.factorEvaporacion ?? 1) : 1);
   [Nu] = lamorturb(((g * d_p ** 3) / (T_i * nu ** 2)) * Math.abs(T_p - T_i), (int_air_speed * d_p) / nu);
   const QV_p_i = (A_p * Nu * lam * (T_p - T_i)) / d_p, QP_p_i = 0;
   [Nu] = lamorturb(((g * d_v ** 3) / (T_i * nu ** 2)) * Math.abs(T_v - T_i), (int_air_speed * d_v) / nu);
@@ -133,6 +138,10 @@ export function derivadas(t, y, clima, aj = AJUSTES, flujos = null) {
   const angle = Math.asin(sind(lat) * sind(delta) + cosd(lat) * cosd(delta) * cosd(az)) / rad;
   let direct = 0, diffuse = 0;
   for (let k = 0; k < 8; k++) { direct += 0.5 * SurfaceArea[k] * cl[4 + k]; diffuse += 0.5 * SurfaceArea[k] * cl[12 + k]; }
+  const solExterior = direct + diffuse;
+  const cierrePantalla = cierreSombreo(aj, solExterior / 500);
+  const factorPantalla = 1 - 0.8 * cierrePantalla;
+  direct *= factorPantalla; diffuse *= factorPantalla;
   const QS_int_rNIR = tau_c_NIR * direct, QS_int_rVIS = tau_c_VIS * direct, QS_int_fNIR = tau_c_NIR * diffuse, QS_int_fVIS = tau_c_VIS * diffuse;
   const QS_c = alph_c * 2 * (direct + diffuse);
   const QS_i = a_obs * (QS_int_rNIR + QS_int_rVIS + QS_int_fNIR + QS_int_fVIS);
@@ -159,7 +168,7 @@ export function derivadas(t, y, clima, aj = AJUSTES, flujos = null) {
   const r_i_vpd = vpd / 1000 < 0.8 ? 1 + 4.3 * (vpd / 1000) ** 2 : 3.8;
   const r_st = 82 * ((QS_int + 4.3) / (QS_int + 0.54)) * (1 + 0.023 * (T_v - T_k - 24.5) ** 2) * r_i_CO2 * r_i_vpd;
   const hL_v_i = ((2 * LAI * H_fg) / (rho_i * c_i)) * (Le ** (2 / 3) / HV + r_st / (rho_i * c_i)) ** -1;
-  const QT_v_i = Math.max(A_v * hL_v_i * (sat_conc(T_v) - C_w), 0);
+  const QT_v_i = Math.max(A_v * hL_v_i * (sat_conc(T_v) - C_w), 0) * (aj.factorHidrico ?? 1);
 
   // conducción
   const QD_sf1 = ((A_f * lam_s[0]) / l_s[0]) * (T_f - T_s1), QD_s12 = ((A_f * lam_s[1]) / l_s[1]) * (T_s1 - T_s2);
@@ -172,14 +181,13 @@ export function derivadas(t, y, clima, aj = AJUSTES, flujos = null) {
   const Qw = Cd * crack_area * Math.sqrt((2 * wind_pressure) / rho_i), Qs = Cd * crack_area * Math.sqrt((2 * Math.abs(stack)) / rho_i);
   const R_a_min = (Math.hypot(Qw, Qs) * crack_length_total) / crack_length / V;
   const dTv = T_i - aj.T_sp_vent, R_a_max = aj.R_a_max;
-  const R_a = R_a_min + (dTv > 0 && dTv < 4 ? ((R_a_max - R_a_min) / 4) * dTv : 0) + (dTv >= 4 ? R_a_max - R_a_min : 0);
+  const apertura = aperturaVentanas(aj, T_i);
+  const R_a = R_a_min + (R_a_max - R_a_min) * apertura;
   const QV_i_e = R_a * V * rho_i * c_i * (T_i - T_e);
   const MW_i_e = R_a * (C_w - C_we), MC_i_e = R_a * (C_c - C_ce);
-  const hora = Math.floor(t / 3600) + 1, hd = (hora / 24 - Math.floor(hora / 24)) * 24;
-  const MC_cc_i = hd > 6 && hd < 20 ? aj.added_CO2 / 3600 / V : 0;
-
-  // calefacción (pieza añadida): proporcional en 1 K por debajo de la consigna
-  const Q_calef = aj.calefaccion ? aj.P_calef * Math.min(Math.max(aj.T_sp_calef - T_i, 0), 1) : 0;
+  // Un mismo actuador alimenta el balance de masa y la contabilidad de recursos.
+  const [Q_calef, inyeccionCO2] = actuadores(t, y, aj);
+  const MC_cc_i = inyeccionCO2 / V;
 
   // fotosíntesis (Vanthoor)
   const T_25 = T_k + 25, PAR = QS_v_VIS / heat_phot / N_A / A_v;
@@ -189,7 +197,7 @@ export function derivadas(t, y, clima, aj = AJUSTES, flujos = null) {
   const J_pot = LAI * J_max_25 * Math.exp((E_j * (T_v - T_25)) / (R * T_v * T_25)) * (1 + Math.exp((S * T_25 - HH) / (R * T_25))) / (1 + Math.exp((S * T_v - HH) / (R * T_v)));
   const J = (J_pot + alph * PAR - Math.sqrt((J_pot + alph * PAR) ** 2 - 4 * theta * J_pot * alph * PAR)) / (2 * theta);
   const P = (J * (C_stom - Gamma)) / (4 * (C_stom + 2 * Gamma)), Resp = (P * Gamma) / C_stom;
-  const MC_i_buf = M_carb * h_airbuf_buf * (P - Resp);
+  const MC_i_buf = M_carb * h_airbuf_buf * (P - Resp) * (aj.factorHidrico ?? 1);
 
   // crecimiento
   const h_buforg_buf = 1 / (1 + Math.exp(s_buforg_buf * (C_buf - 0.05 * C_buf_max)));
@@ -197,7 +205,7 @@ export function derivadas(t, y, clima, aj = AJUSTES, flujos = null) {
   const h_T_v24 = 1 / (1 + Math.exp(s_min_T24 * (T_vmean - T_k - T_min_v24))) / (1 + Math.exp(s_max_T24 * (T_vmean - T_k - T_max_v24)));
   const r1 = T_vsum / T_sum_end, r2 = (T_vsum - T_sum_end) / T_sum_end;
   const h_T_vsum = 0.5 * (r1 + Math.sqrt(r1 ** 2 + 1e-4)) - 0.5 * (r2 + Math.sqrt(r2 ** 2 + 1e-4));
-  const g_T_v24 = 0.047 * (T_vmean - T_k) + 0.06;
+  const g_T_v24 = (0.047 * (T_vmean - T_k) + 0.06) * (aj.factorHidrico ?? 1);
   const MC_buf_fruit = h_buforg_buf * h_T_v * h_T_v24 * h_T_vsum * g_T_v24 * rg_fruit;
   const MC_buf_leaf = h_buforg_buf * h_T_v24 * g_T_v24 * rg_leaf, MC_buf_stem = h_buforg_buf * h_T_v24 * g_T_v24 * rg_stem;
   const MC_buf_i = c_fruit_g * MC_buf_fruit + c_leaf_g * MC_buf_leaf + c_stem_g * MC_buf_stem;
@@ -236,12 +244,25 @@ export function derivadas(t, y, clima, aj = AJUSTES, flujos = null) {
     vegetacion_aire: QV_v_i, manta_aire: QV_m_i, bandeja_aire: QV_p_i, ventilacion: QV_i_e, transpiracion: QT_v_i,
     vegetacion_cubierta: QR_v_c, suelo_subsuelo: QD_sf1, subsuelo_fondo: QD_s45,
     // masa: vapor [kg/s] y CO₂ [kg/s]
-    vapor_transpiracion: QT_v_i / H_fg, vapor_condensacion: (QP_i_c + QP_i_f) / H_fg, vapor_ventilacion: MW_i_e * V,
+    vapor_transpiracion: QT_v_i / H_fg, vapor_evaporacion: QP_m_i / H_fg,
+    vapor_condensacion: (QP_i_c + QP_i_f) / H_fg, vapor_ventilacion: MW_i_e * V,
     co2_ventilacion: MC_i_e * V, co2_fotosintesis: (M_c / M_carb) * A_v * MC_i_buf,
     co2_respiracion: (M_c / M_carb) * A_v * (MC_buf_i + MC_fruit_i + MC_leaf_i + MC_stem_i), co2_inyeccion: MC_cc_i * V,
+    // Carbono elemental [kg C/s], CH₂O = 30 g/mol, C = 12 g/mol.
+    carbono_inyeccion: MC_cc_i * V * 12 / 44,
+    carbono_ventilacion: MC_i_e * V * 12 / 44,
+    carbono_fotosintesis: A_v * MC_i_buf * 12 / 30,
+    carbono_fruto: A_v * MC_buf_fruit * 12 / 30,
+    carbono_hojas: A_v * MC_buf_leaf * 12 / 30,
+    carbono_tallo: A_v * MC_buf_stem * 12 / 30,
+    carbono_resp_reserva: A_v * MC_buf_i * 12 / 30,
+    carbono_resp_fruto: A_v * MC_fruit_i * 12 / 30,
+    carbono_resp_hojas: A_v * MC_leaf_i * 12 / 30,
+    carbono_resp_tallo: A_v * MC_stem_i * 12 / 30,
+    carbono_poda: A_v * MC_leaf_prune * 12 / 30,
     // otros
-    calefaccion: Q_calef, renovaciones_h: R_a * 3600, apertura: Math.min(Math.max(dTv / 4, 0), 1), PAR, LAI, T_ext: T_e - T_k, HR_ext: rel_humid * 100, HR_int: (C_w / sat_conc(T_i)) * 100,
-    CO2_ppm: C_c_ppm, sol_exterior: direct + diffuse,
+    calefaccion: Q_calef, renovaciones_h: R_a * 3600, apertura, PAR, LAI, T_ext: T_e - T_k, HR_ext: rel_humid * 100, HR_int: (C_w / sat_conc(T_i)) * 100,
+    viento_exterior: wind_speed, CO2_ppm: C_c_ppm, sol_exterior: solExterior, sombreo_cierre: cierrePantalla, sol_tras_pantalla: solExterior * factorPantalla, solar_reflejado: 2 * solExterior * (1 - factorPantalla),
   });
   return d;
 }

@@ -150,6 +150,11 @@ function construye(escena) {
     }
   }
 
+  // Pantalla exterior ideal, desplegada en longitud; su cierre viene del modelo.
+  o.pantalla = new THREE.Mesh(new THREE.PlaneGeometry(L, W + 1), new THREE.MeshStandardMaterial({ color: '#83927b', transparent: true, opacity: 0.65, side: THREE.DoubleSide, roughness: 0.9 }));
+  o.pantalla.rotation.x = -Math.PI / 2; o.pantalla.position.set(0, CUMBRERA + 0.8, 0);
+  o.pantalla.visible = false; inv.add(o.pantalla);
+
   // estructura: pilares, cerchas, cumbrera y aleros de aluminio
   const metal = new THREE.MeshStandardMaterial({ color: "#3f4a57", metalness: 0.6, roughness: 0.4 });
   const barra = (a, b, grosor = 0.07) => {
@@ -218,7 +223,7 @@ function construye(escena) {
   return o;
 }
 
-export function Vista3D({ vista, latitud }) {
+export function Vista3D({ vista, latitud, compacta = false }) {
   const caja = useRef(null), estado = useRef(null);
   const [dentro, setDentro] = useState(() => new URLSearchParams(location.search).get("camara") === "dentro");
   const cambiaCamara = () => { const k = dentro ? "fuera" : "dentro"; estado.current?.encuadra(k); setDentro(!dentro); };
@@ -248,13 +253,13 @@ export function Vista3D({ vista, latitud }) {
     };
     // dos encuadres: el invernadero entero, o dentro, en el pasillo entre las plantas
     const encuadres = {
-      fuera: { pos: new THREE.Vector3(-15, 8, 21), obj: new THREE.Vector3(0, 3, 0), min: 8 },
+      fuera: { pos: compacta ? new THREE.Vector3(-15, 9, 22) : new THREE.Vector3(-15, 8, 21), obj: new THREE.Vector3(0, 2.5, 0), min: 8 },
       dentro: { pos: o.inv.localToWorld(new THREE.Vector3(-11.5, 1.7, -0.2)), obj: o.inv.localToWorld(new THREE.Vector3(-4, 0.9, -2.6)), min: 0.5 },
     };
     const encuadra = (k) => { const e = encuadres[k]; for (const c of o.cotas) c.visible = k === "fuera"; camara.position.copy(e.pos); controles.target.copy(e.obj); controles.minDistance = e.min; controles.update(); };
     encuadra(new URLSearchParams(location.search).get("camara") === "dentro" ? "dentro" : "fuera");
-    estado.current = { o, escena, renderer, rehaceEntorno, encuadra };
-    const tam = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h); camara.aspect = w / h; camara.fov = w / h < 0.8 ? 62 : 50; camara.updateProjectionMatrix(); };   // en vertical, más ángulo
+    estado.current = { o, escena, renderer, rehaceEntorno, encuadra, zoom: (factor) => { camara.position.sub(controles.target).multiplyScalar(factor).add(controles.target); controles.update(); } };
+    const tam = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h); camara.aspect = w / h; camara.fov = compacta ? 44 : w / h < 0.8 ? 62 : 50; camara.updateProjectionMatrix(); };   // en vertical, más ángulo
     tam(); const ro = new ResizeObserver(tam); ro.observe(el);
     let raf; const bucle = () => { controles.update(); renderer.render(escena, camara); raf = requestAnimationFrame(bucle); }; bucle();
     return () => { cancelAnimationFrame(raf); ro.disconnect(); controles.dispose(); entorno?.dispose(); pmrem.dispose(); renderer.dispose(); el.removeChild(renderer.domElement); };
@@ -288,6 +293,10 @@ export function Vista3D({ vista, latitud }) {
     const apertura = f.apertura * 45 * rad;
     for (const v of o.ventanas) v.marco.rotation.x = v.base - v.lado * apertura;
     o.marcoVentana.emissiveIntensity = 0.9 * Math.min(f.apertura * 3, 1);
+
+    const cierre = f.sombreo_cierre || 0;
+    o.pantalla.visible = cierre > 0.001; o.pantalla.scale.x = Math.max(cierre, 0.001);
+    o.pantalla.position.x = -(L * (1 - cierre)) / 2;
 
     // aire y vidrio
     const Ti = y[1] - T_K;
@@ -337,14 +346,16 @@ export function Vista3D({ vista, latitud }) {
   const f = vista?.flujos, sp = vista ? posicionSol(vista.t, latitud) : null;
   return (
     <div className="vista3d" ref={caja}>
-      <button className="boton-camara" onClick={cambiaCamara}>{dentro ? "Ver el invernadero" : "Entre las plantas"}</button>
-      {f && (
+      <button className="boton-camara" onClick={cambiaCamara}>{compacta ? (dentro ? "Fuera" : "Dentro") : (dentro ? "Ver el invernadero" : "Entre las plantas")}</button>
+      {compacta && <div className="zoom-escena"><button aria-label="Acercar vista 3D" onClick={() => estado.current?.zoom(0.85)}>+</button><button aria-label="Alejar vista 3D" onClick={() => estado.current?.zoom(1.18)}>−</button></div>}
+      {f && !compacta && (
         <div className="rotulo3d">
           <span>☀ {sp.elev > 0 ? `${(sp.elev / rad).toFixed(0)}° · ${(f.sol_exterior / 500).toFixed(0)} W/m²` : "noche"}</span>
           <span>fuera {f.T_ext.toFixed(1)} °C</span>
           <span>dentro {(vista.y[1] - T_K).toFixed(1)} °C · {f.HR_int.toFixed(0)} %</span>
           <span>ventanas {(f.apertura * 100).toFixed(0)} % abiertas · {f.renovaciones_h.toFixed(1)} renov./h</span>
           {vista.racimos?.length > 0 && <span>🍅 {vista.racimos.length} racimos, {vista.racimos.filter((r) => r.gd >= RACIMOS.maduroEn).length} maduros · {(vista.y[15] * 1000).toFixed(0)} g/m² de fruto</span>}
+          <span>riego {(f.agua_riego * 3600).toFixed(1)} L/h · agua en plantas {vista.y[22].toFixed(0)} L · {f.factor_hidrico < 0.99 ? "estrés hídrico" : "sin estrés hídrico"}</span>
           {f.calefaccion > 0 && <span>calefacción {(f.calefaccion / 1000).toFixed(1)} kW</span>}
         </div>
       )}

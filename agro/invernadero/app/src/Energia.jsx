@@ -3,14 +3,14 @@
 import { EQUIPOS } from "./simulacion.js";
 
 const A_SUELO = 250;
-const kwh = (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)} MWh` : `${v.toFixed(0)} kWh`);
+const kwh = (v) => (v >= 1000 ? `${(v / 1000).toFixed(1)} MWh` : `${v.toFixed(v < 0.1 ? 3 : v < 1 ? 2 : 1)} kWh`);
 
 export function Energia({ energia, dias, equipo }) {
   if (!energia) return null;
   const { calor, gas, electrica, co2 } = energia, total = gas + electrica;
   const filas = [
     ["Calor útil (al aire)", calor, "#f59e0b"],
-    ...(equipo === "caldera" ? [["Térmica (gas)", gas, "#ef7d3c"]] : []),
+    ...(gas > 0 || equipo === "caldera" ? [["Térmica (gas)", gas, "#ef7d3c"]] : []),
     ["Eléctrica", electrica, "#4f9be8"],
   ];
   return (
@@ -29,7 +29,7 @@ export function Energia({ energia, dias, equipo }) {
         <tr className="total"><td>Total final</td><td className="num">{kwh(total)}</td><td className="num suave">{(total / A_SUELO).toFixed(1)} kWh/m²</td></tr>
         {co2 > 0 && <tr><td><i style={{ background: "#3fb27f" }} />CO₂ inyectado</td><td className="num">{co2.toFixed(0)} kg</td><td className="num suave">{(co2 / A_SUELO).toFixed(2)} kg/m²</td></tr>}
       </tbody></table>
-      {calor === 0 && <p className="suave">Sin calefacción no hay consumo: el modelo no tiene luces, ventiladores ni bombas.</p>}
+      {calor === 0 && <p className="suave">El calor útil puede ser cero. La electricidad incluye los motores y arranques configurados en el visor; no incluye riego, luces ni ventiladores.</p>}
     </div>
   );
 }

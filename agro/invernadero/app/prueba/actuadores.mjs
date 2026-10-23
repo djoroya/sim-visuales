@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { creaClima, estadoInicial, derivadas, AJUSTES } from '../src/modelo/ges.js';
+import { acumulaRecursos, acumulaMovimiento, potenciaRecursos } from '../src/modelo/recursos.js';
+const d = JSON.parse(fs.readFileSync(new URL('../public/datos/tiempo-hortimed.json', import.meta.url)));
+const clima = creaClima(d), t = 105*86400+12*3600, y = estadoInicial(clima,t);
+const f = {}, sombra = {}, abiertas = {}, cerradas = {};
+derivadas(t,y,clima,AJUSTES,f);
+derivadas(t,y,clima,{...AJUSTES,sombreoModo:'fijo',sombreo:100},sombra);
+assert.equal(sombra.sombreo_cierre,1);assert.equal(sombra.sol_exterior,f.sol_exterior);
+assert.ok(Math.abs(sombra.sol_vegetacion - 0.2*f.sol_vegetacion)<1e-7);
+derivadas(t,y,clima,{...AJUSTES,ventanasModo:'manual',aperturaVentanas:100},abiertas);
+derivadas(t,y,clima,{...AJUSTES,ventanasModo:'manual',aperturaVentanas:0},cerradas);
+assert.equal(abiertas.apertura,1);assert.equal(cerradas.apertura,0);
+assert.ok(abiertas.renovaciones_h > cerradas.renovaciones_h);
+assert.deepEqual(potenciaRecursos(40000,'electrico',10),{gas:0,electrica:40000});
+const e = {calor:0,gas:0,electrica:0,co2:0};
+for(const calor of [40000,40000,0,40000]) acumulaRecursos(e,{calor,equipo:'electrico',exterior:10,segundos:60,arranqueWh:10});
+assert.equal(e.arranques,2);assert.equal(e.gas,0);assert.ok(Math.abs(e.electrica-2.02)<1e-10);
+assert.ok(Math.abs(e.horasActiva-0.05)<1e-10);
+console.log('OK: pantalla, ventanas manuales, electricidad integrada y arranques.');
+
+const motor = {electrica:0};
+for (const pos of [0,0.5,1,1,0]) acumulaMovimiento(motor,'ventanas',pos,50);
+assert.ok(Math.abs(motor.electrica-0.1)<1e-10);
+console.log('OK: motores consumen por recorrido y no por permanecer abiertos.');

@@ -1,3 +1,5 @@
+import { EstadoActuadores } from './EstadoActuadores.jsx';
+import { VisorSeguro } from './VisorSeguro.jsx';
 import { useEffect, useState } from "react";
 import { ReactFlow, Handle, Position, BaseEdge, getBezierPath, ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -5,6 +7,9 @@ import { useSimulacion, TIEMPOS } from "./simulacion.js";
 import { PIEZAS, FLUJOS, TIPOS } from "./piezas.js";
 import { Graficas } from "./Graficas.jsx";
 import { Calendario } from "./Calendario.jsx";
+import Planificador from "./Planificador.jsx";
+import { VariablesSistema, FlujosResumen, TotalesResumen } from "./ResumenSistema.jsx";
+import { Agua } from "./Agua.jsx";
 import { Energia } from "./Energia.jsx";
 import { EQUIPOS } from "./simulacion.js";
 import { lazy, Suspense } from "react";
@@ -12,7 +17,7 @@ import { lazy, Suspense } from "react";
 const Vista3D = lazy(() => import("./Vista3D.jsx").then((m) => ({ default: m.Vista3D })));
 
 const LADOS = { top: Position.Top, right: Position.Right, bottom: Position.Bottom, left: Position.Left };
-const DESPLAZA = { vapor: 30, energia: 50, co2: 70 };                // posición de cada tipo en el lado (%)
+const DESPLAZA = { vapor: 25, agua: 40, energia: 55, co2: 75 };                // posición de cada tipo en el lado (%)
 
 // ---- nodo: una pieza del invernadero ----
 function NodoPieza({ data }) {
@@ -89,7 +94,7 @@ function Panel({ vista, seleccion }) {
   if (!seleccion) return (
     <div className="panel">
       <h3>Un invernadero por piezas</h3>
-      <p>Cada caja es un balance físico (energía, vapor, CO₂); cada línea, un flujo que sale de una pieza y entra en otra. El grosor es su valor en este momento; los puntos que corren, su sentido.</p>
+      <p>Cada caja es un balance físico (energía, agua, vapor, CO₂); cada línea, un flujo que sale de una pieza y entra en otra. El grosor es su valor en este momento; los puntos que corren, su sentido.</p>
       <p className="leyenda">{Object.values(TIPOS).map((t) => <span key={t.nombre}><i style={{ background: t.color }} />{t.nombre}</span>)}</p>
       <p className="suave">Pulsa una pieza para ver su ecuación y los flujos que entran y salen.</p>
     </div>
@@ -122,51 +127,42 @@ function fecha(t, anio) {
 
 export default function App() {
   const sim = useSimulacion();
-  // ?pieza=aire abre el panel de esa pieza (para enlazar desde el texto del artículo)
-  const [seleccion, setSeleccion] = useState(() => new URLSearchParams(location.search).get("pieza"));
-  // por defecto, la vista 3D; ?vista=piezas (o ?pieza=…) abre el diagrama de piezas
-  const [vista3d, setVista3d] = useState(() => { const q = new URLSearchParams(location.search); return q.get("vista") !== "piezas" && !q.get("pieza"); });
+  const [modo, setModo] = useState(() => new URLSearchParams(location.search).get('modo') === 'campana' ? 'campana' : 'explorar');
+  const [detalle, setDetalle] = useState(() => { const q = new URLSearchParams(location.search); return q.has('pieza') || q.get('vista') === 'piezas'; });
+  useEffect(() => { sim.setEnMarcha(modo === 'explorar'); }, [modo]);
+  const [seleccion, setSeleccion] = useState(() => new URLSearchParams(location.search).get('pieza'));
   const { vista, ajustes, setAjustes } = sim;
-  const cambia = (k) => (e) => setAjustes((a) => ({ ...a, [k]: e.target.type === "checkbox" ? e.target.checked : +e.target.value }));
   return (
-    <div className="app">
-      <div className="barra">
-        <button onClick={() => sim.setEnMarcha(!sim.enMarcha)}>{sim.enMarcha ? "Pausa" : "Seguir"}</button>
-        <label>Velocidad <select value={sim.velocidad} onChange={(e) => sim.setVelocidad(+e.target.value)}>
-          {[1, 3, 6, 12, 24, 48].map((v) => <option key={v} value={v}>{v} h/s</option>)}</select></label>
-        <label>Tiempo <select value={sim.tiempo} onChange={(e) => sim.setTiempo(e.target.value)}>
-          {Object.entries(TIEMPOS).map(([k, v]) => <option key={k} value={k}>{v.nombre}</option>)}</select></label>
-        <label>Empieza en <select value={sim.inicio} onChange={(e) => sim.setInicio(+e.target.value)}>
-          {TIEMPOS[sim.tiempo].inicios.map(([d, m]) => <option key={d} value={d}>{m}</option>)}
-          {!TIEMPOS[sim.tiempo].inicios.some(([d]) => d === sim.inicio) && <option value={sim.inicio}>{fecha(sim.inicio * 86400 - 86400, TIEMPOS[sim.tiempo].anio).split(",")[0]}</option>}</select></label>
-        <button onClick={sim.reinicia}>Reiniciar</button>
-        <span className="reloj">{vista && sim.listo ? fecha(vista.t, TIEMPOS[sim.tiempo].anio) : "cargando…"}</span>
-      </div>
-      <div className="barra">
-        <label>Ventanas desde <input type="range" min="15" max="32" step="0.5" value={ajustes.ventilacion} onChange={cambia("ventilacion")} /> <output>{ajustes.ventilacion} °C</output></label>
-        <label><input type="checkbox" checked={ajustes.calefaccion} onChange={cambia("calefaccion")} /> Calefacción</label>
-        {ajustes.calefaccion && <label>a <input type="range" min="8" max="22" step="0.5" value={ajustes.consignaCalef} onChange={cambia("consignaCalef")} /> <output>{ajustes.consignaCalef} °C</output></label>}
-        {ajustes.calefaccion && <label>con <select value={ajustes.equipo} onChange={(e) => setAjustes((a) => ({ ...a, equipo: e.target.value }))}>
-          {Object.entries(EQUIPOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>}
-        <label>CO₂ <input type="range" min="0" max="10" step="0.5" value={ajustes.co2} onChange={cambia("co2")} /> <output>{ajustes.co2} kg/h</output></label>
-      </div>
-      {vista && sim.listo && <Calendario t={vista.t} rango={sim.rango} anio={TIEMPOS[sim.tiempo].anio} saltar={(d) => { sim.setInicio(d); sim.setEnMarcha(true); }} />}
-      <div className="cuerpo">
-        <div className="diagrama">
-          <div className="pestanas">
-            <button className={vista3d ? "" : "activa"} onClick={() => setVista3d(false)}>Piezas</button>
-            <button className={vista3d ? "activa" : ""} onClick={() => setVista3d(true)}>3D</button>
-          </div>
-          {vista3d
-            ? <Suspense fallback={<div className="cargando">cargando la vista 3D…</div>}><Vista3D vista={vista} latitud={sim.latitud} /></Suspense>
-            : <ReactFlowProvider><Diagrama vista={vista} ajustes={ajustes} seleccion={seleccion} setSeleccion={setSeleccion} /></ReactFlowProvider>}
+    <div className="app app-compacta">
+      <nav className="modos-simulador" aria-label="Modo del simulador">
+        <button aria-pressed={modo === 'explorar'} onClick={() => setModo('explorar')}>Sistema y flujos</button>
+        <button aria-pressed={modo === 'campana'} onClick={() => setModo('campana')}>Comparar campañas</button>
+      </nav>
+      <div hidden={modo !== 'campana'}><Planificador /></div>
+      {modo === 'explorar' && <>
+        <header className="cabecera-sistema"><div><h1>Un invernadero por piezas</h1><p>El exterior impone, el estado evoluciona y el control actúa.</p></div>
+          <div className="reproduccion-sistema"><button onClick={() => sim.setEnMarcha(!sim.enMarcha)}>{sim.enMarcha ? 'Pausa' : 'Seguir'}</button><label>Velocidad <select aria-label="Velocidad" value={sim.velocidad} onChange={(e) => sim.setVelocidad(+e.target.value)}>{[1,3,6,12,24,48].map((v) => <option key={v} value={v}>{v} h/s</option>)}</select></label><button onClick={sim.reinicia}>Reiniciar</button></div>
+        </header>
+        {sim.errorCarga && <p className="error-campana" role="alert">{sim.errorCarga} <button onClick={sim.reintentaCarga}>Reintentar carga</button></p>}
+        {!sim.listo && !sim.errorCarga && <p role="status">Cargando datos de clima…</p>}
+        <VariablesSistema sim={sim} />
+        <EstadoActuadores sim={sim} />
+        <div className="visual-sistema">
+          <section className="escena-compacta" aria-label="Vista 3D del invernadero"><VisorSeguro><Suspense fallback={<div className="cargando">Cargando 3D…</div>}><Vista3D vista={vista} latitud={sim.latitud} compacta /></Suspense></VisorSeguro></section>
+          <FlujosResumen vista={vista} />
         </div>
-        <div className="columna">
-          <Panel vista={vista} seleccion={seleccion} />
-          {vista && <Energia energia={vista.energia} dias={(vista.t - vista.inicio) / 86400} equipo={ajustes.equipo} />}
-        </div>
-      </div>
-      {vista && <Graficas historial={vista.historial} cultivo={vista.cultivo} inicio={vista.inicio} ajustes={ajustes} anio={TIEMPOS[sim.tiempo].anio} />}
+        <div className="fecha-sistema">{vista && sim.listo ? fecha(vista.t, TIEMPOS[sim.tiempo].anio) : 'Cargando clima…'} · {TIEMPOS[sim.tiempo].nombre}</div>
+        <TotalesResumen vista={vista} />
+        <details className="ajustes-contexto"><summary>Cambiar clima, fecha y equipo de calefacción</summary><div className="barra">
+          <label>Clima <select aria-label="Clima" value={sim.tiempo} onChange={(e) => sim.setTiempo(e.target.value)}>{Object.entries(TIEMPOS).map(([k,v]) => <option key={k} value={k}>{v.nombre}</option>)}</select></label>
+          <label>Inicio <select aria-label="Inicio" value={sim.inicio} onChange={(e) => sim.setInicio(+e.target.value)}>{TIEMPOS[sim.tiempo].inicios.map(([d,m]) => <option key={d} value={d}>{m}</option>)}{!TIEMPOS[sim.tiempo].inicios.some(([d]) => d === sim.inicio) && <option value={sim.inicio}>{fecha(sim.inicio * 86400, TIEMPOS[sim.tiempo].anio).split(',')[0]}</option>}</select></label>
+          <label>Equipo <select aria-label="Equipo de calefacción" value={ajustes.equipo} onChange={(e) => setAjustes((a) => ({ ...a, equipo: e.target.value }))}>{Object.entries(EQUIPOS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+        </div>{vista && sim.listo && <Calendario t={vista.t} rango={sim.rango} anio={TIEMPOS[sim.tiempo].anio} saltar={(d) => { sim.setInicio(d); sim.setEnMarcha(true); }} />}</details>
+        <details className="detalle-sistema" open={detalle} onToggle={(e) => setDetalle(e.currentTarget.open)}><summary>Ver piezas, ecuaciones y series</summary>
+          {detalle && <><div className="cuerpo"><div className="diagrama"><ReactFlowProvider><Diagrama vista={vista} ajustes={ajustes} seleccion={seleccion} setSeleccion={setSeleccion} /></ReactFlowProvider></div><div className="columna"><Panel vista={vista} seleccion={seleccion} />{vista && <Energia energia={vista.energia} dias={(vista.t-vista.inicio)/86400} equipo={ajustes.equipo} />}</div></div>
+          {vista && <><Agua vista={vista} /><Graficas historial={vista.historial} cultivo={vista.cultivo} inicio={vista.inicio} ajustes={ajustes} anio={TIEMPOS[sim.tiempo].anio} /></>}</>}
+        </details>
+      </>}
     </div>
   );
 }
