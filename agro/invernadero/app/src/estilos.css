@@ -276,18 +276,20 @@ table.flujos td { padding: 3px 4px; border-top: 1px solid #22385a; } table.flujo
 .etiqueta-caudal { position: absolute; pointer-events: all; font: 12px/1.3 system-ui,sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; background: #13294a; border: 1px solid #2d4466; border-radius: 4px; padding: 3px 5px; cursor: pointer; }
 .etiqueta-caudal:hover, .etiqueta-caudal:focus-visible { border-color: currentColor; }
 
-/* La escena y los flujos comparten el ancho; los actuadores pertenecen a la escena. */
+/* Mitad para la escena; mitad para los flujos y sus actuadores. */
 .app-compacta { padding: 20px; }
-.columna-invernadero { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-.columna-invernadero .escena-compacta { height: 340px; }
-.columna-invernadero .estado-actuadores { margin: 0; gap: 6px; }
-.columna-invernadero .estado-actuadores article { padding: 8px; }
-.columna-invernadero .estado-actuadores h3 { font-size: 11px; margin-bottom: 4px; }
-.columna-invernadero .estado-actuadores h3 span,
-.columna-invernadero .estado-actuadores p,
-.columna-invernadero .estado-actuadores summary,
-.columna-invernadero .estado-actuadores label { font-size: 10px; }
-.columna-invernadero .estado-actuadores select { padding: 3px; font-size: 10px; }
+.visual-sistema { align-items: stretch; }
+.columna-invernadero, .columna-flujos { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.columna-invernadero { position: relative; min-height: 340px; }
+.columna-invernadero .escena-compacta { position: absolute; inset: 0; height: 100%; }
+.columna-flujos .estado-actuadores { margin: 0; gap: 6px; }
+.columna-flujos .estado-actuadores article { padding: 8px; }
+.columna-flujos .estado-actuadores h3 { font-size: 11px; margin-bottom: 4px; }
+.columna-flujos .estado-actuadores h3 span,
+.columna-flujos .estado-actuadores p,
+.columna-flujos .estado-actuadores summary,
+.columna-flujos .estado-actuadores label { font-size: 10px; }
+.columna-flujos .estado-actuadores select { padding: 3px; font-size: 10px; }
 .nodo-dependencia .grupo-sistema { padding: 10px; }
 .nodo-dependencia .grupo-sistema h2 { font-size: 13px; }
 .nodo-dependencia .grupo-sistema > p { font-size: 10px; margin-bottom: 8px; }
@@ -312,14 +314,14 @@ table.flujos td { padding: 3px 4px; border-top: 1px solid #22385a; } table.flujo
 .temperatura-flotante svg text { fill: #a9bdd5; font: 10px system-ui, sans-serif; }
 @media(max-width:760px) {
   .app-compacta, .incrustado .app { padding: 12px; }
-  .columna-invernadero .escena-compacta { height: 280px; }
-  .columna-invernadero .estado-actuadores { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .columna-invernadero { min-height: 280px; }
+  .columna-flujos .estado-actuadores { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media(max-width:440px) {
-  .columna-invernadero .estado-actuadores { grid-template-columns: 1fr; }
-  .columna-invernadero .estado-actuadores article { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
-  .columna-invernadero .estado-actuadores h3 { grid-row: span 2; }
-  .columna-invernadero .estado-actuadores details { grid-column: 1 / -1; }
+  .columna-flujos .estado-actuadores { grid-template-columns: 1fr; }
+  .columna-flujos .estado-actuadores article { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .columna-flujos .estado-actuadores h3 { grid-row: span 2; }
+  .columna-flujos .estado-actuadores details { grid-column: 1 / -1; }
 }
 .nodo-materia .consulta-temperatura { align-items: center; }
 .nodo-materia .consulta-temperatura strong { font-size: 12px; }

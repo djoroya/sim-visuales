@@ -149,10 +149,12 @@ export default function App() {
         <PlegableMovil titulo="Exterior, estado y control"><VariablesSistema sim={sim} /></PlegableMovil>
         <div className="visual-sistema">
           <div className="columna-invernadero">
-          <PlegableMovil titulo="Calefactor, ventanas y sombreo"><EstadoActuadores sim={sim} /></PlegableMovil>
           <section className="escena-compacta" aria-label="Vista 3D del invernadero"><VisorSeguro><Suspense fallback={<div className="cargando">Cargando 3D…</div>}><Vista3D vista={vista} latitud={sim.latitud} compacta /></Suspense></VisorSeguro></section>
           </div>
+          <div className="columna-flujos">
           <FlujosResumen vista={vista} />
+          <PlegableMovil titulo="Calefactor, ventanas y sombreo"><EstadoActuadores sim={sim} /></PlegableMovil>
+          </div>
         </div>
         <div className="fecha-sistema">{vista && sim.listo ? fecha(vista.t, TIEMPOS[sim.tiempo].anio) : 'Cargando clima…'} · {TIEMPOS[sim.tiempo].nombre}</div>
         <PlegableMovil titulo="Consumos acumulados"><TotalesResumen vista={vista} /></PlegableMovil>
