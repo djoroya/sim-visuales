@@ -1,6 +1,9 @@
 :root { --navy:#0d1f36; --navy2:#13294a; --borde:#2d4466; --on:#e8eef6; --suave:#8fa3bd; --warm:#f59e0b; --azul:#4f9be8; --verde:#3fb27f; }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--navy); color: var(--on); font: 14px/1.45 system-ui, sans-serif; }
+/* El artículo ajusta la altura del iframe al contenido. Una barra interior
+   cambia el ancho y realimenta ese ajuste mientras se carga el visor. */
+html.incrustado { overflow-y: hidden; }
 .app { max-width: 1200px; margin: 0 auto; padding: 12px 16px; }
 .incrustado .app { padding: 16px; }
 .barra { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 8px; }
