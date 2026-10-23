@@ -10,6 +10,7 @@ particulas/*/datos/
 particulas/*/tmp/
 control/*/datos/
 control/*/tmp/
+energia/*/tmp/
 *.nw.gz
 
 # visor
