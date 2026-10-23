@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlow, ReactFlowProvider, Handle, Position, MarkerType, EdgeLabelRenderer, BaseEdge, getSmoothStepPath, getBezierPath, useNodesState, useNodesInitialized, useReactFlow } from '@xyflow/react';
 import { GRAFOS_FLUJOS, describeFlujo } from './modelo/grafo-flujos.js';
+import { TemperaturaAire } from './TemperaturaAire.jsx';
 const ContextoFlujos = createContext(null);
 const numero = (v) => v > 0 && v < 0.001 ? '<0,001' : v.toLocaleString('es-ES', { maximumFractionDigits: v > 0 && v < 0.1 ? 3 : 1 });
 function NodoMateria({ data }) {
-  const { y } = useContext(ContextoFlujos);
+  const { y, vista } = useContext(ContextoFlujos);
   const masa = data.estado != null && y ? y[data.estado] * 187.5 : null;
-  return <div className={`nodo-materia materia-${data.tipo}`}><strong>{data.nombre}</strong>{masa != null && <small>{numero(masa)} kg CH₂O<br />{numero(masa * 12 / 30)} kg C</small>}{Object.entries(Position).flatMap(([nombre,lado]) => [
+  return <div className={`nodo-materia materia-${data.tipo}`}>{data.nombre === 'Aire interior' ? <TemperaturaAire vista={vista} /> : <strong>{data.nombre}</strong>}{masa != null && <small>{numero(masa)} kg CH₂O<br />{numero(masa * 12 / 30)} kg C</small>}{Object.entries(Position).flatMap(([nombre,lado]) => [
     <Handle key={`s-${nombre}`} id={`s-${lado}`} type="source" position={lado} />,
     <Handle key={`t-${nombre}`} id={`t-${lado}`} type="target" position={lado} />,
   ])}</div>;
@@ -38,7 +39,7 @@ function GrafoMateria({ grafo, vertical, ancho, selecciona }) {
   const posicionesCarbono = { inyeccion: [0,0], aire: [200,0], exterior: [200,145], reserva: [0,165], fruto: [0,330], hojas: [200,330], tallo: [0,500], poda: [200,500] };
   const iniciales = useMemo(() => grafo.nodos.map((n) => ({ id: n.id, type: 'materia',
     position: grafo.unidad === 'kg C/h' ? (vertical ? { x: posicionesCarbono[n.id][0], y: posicionesCarbono[n.id][1] } : { x: n.x, y: n.y }) : vertical ? { x: (n.y - 60) * 1.25, y: n.x * 0.76 } : { x: n.x, y: n.y },
-    data: n, style: { width: 120 }, selectable: false, draggable: false })), [grafo, vertical]);
+    data: n, style: { width: 120, pointerEvents: 'all' }, selectable: false, draggable: false })), [grafo, vertical]);
   const [nodes, , onNodesChange] = useNodesState(iniciales);
   useEffect(() => {
     if (!listo) return;
@@ -77,7 +78,7 @@ export default function FlujosGrafo({ vista }) {
   return <section className={`flujos-resumen flujos-${tipo}`} aria-label="Flujos de materia y energía">
     <div className="cabecera-flujos"><h2>Qué entra, se transfiere y sale</h2><div className="selector-flujos" role="group" aria-label="Tipo de flujo">{[['energia','Energía'],['agua','Agua'],['carbono','Carbono']].map(([k,v]) => <button key={k} aria-pressed={tipo === k} onClick={() => { setTipo(k); setSeleccion(null); }}>{v}</button>)}</div></div>
     <div className={`grafo-transferencias${tipo === 'carbono' ? ' grafo-carbono' : ''}${vertical ? ' vertical' : ''}`} ref={caja}>
-      {ancho > 0 && <ContextoFlujos.Provider value={{ grafo, valores, seleccion, y: vista?.y }}><ReactFlowProvider key={`${tipo}-${vertical}`}><GrafoMateria grafo={grafo} vertical={vertical} ancho={ancho} selecciona={setSeleccion} /></ReactFlowProvider></ContextoFlujos.Provider>}
+      {ancho > 0 && <ContextoFlujos.Provider value={{ grafo, valores, seleccion, y: vista?.y, vista }}><ReactFlowProvider key={`${tipo}-${vertical}`}><GrafoMateria grafo={grafo} vertical={vertical} ancho={ancho} selecciona={setSeleccion} /></ReactFlowProvider></ContextoFlujos.Provider>}
     </div>
     <p className="nota-flujos" aria-live="polite">{elegido ? <>{elegido.nombre}: <strong>{actual.de} → {actual.a}, {numero(actual.valor)} {grafo.unidad}</strong>.</> : <>→ Sentido único · ↔ Intercambio reversible. Pulsa una conexión para ver su nombre y sentido actual.</>} {tipo === 'carbono' && 'CO₂ del aire → azúcares → fruto, hojas y tallo. Flujos en kg de carbono por hora; los nodos muestran carbohidratos CH₂O y su carbono (40 %). La respiración devuelve carbono al aire.'} Intercambios principales; balances completos en el detalle.</p>
   </section>;

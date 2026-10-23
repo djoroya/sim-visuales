@@ -1,4 +1,5 @@
 import { EQUIPOS } from './modelo/recursos.js';
+import { TemperaturaAire } from './TemperaturaAire.jsx';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlow, ReactFlowProvider, Handle, Position, MarkerType, useReactFlow, useNodesInitialized, useNodesState } from '@xyflow/react';
 const n = (v, d = 1) => Number.isFinite(v) ? v.toLocaleString('es-ES', { maximumFractionDigits: d }) : '—';
@@ -36,7 +37,7 @@ function TarjetaSistema({ sim, tipo }) {
       <Dato nombre="Humedad" valor={n(f.HR_ext, 0)} unidad="%" /><Dato nombre="Viento" valor={n(f.viento_exterior)} unidad="m/s" />
     </div></section>,
     estado: <section className="grupo-sistema estado-sistema"><h2 className="asa-nodo-sistema"><span>2</span> Estado interno</h2><p>Variables que evolucionan con los balances</p><div className="datos-sistema">
-      <Dato nombre="Aire interior" valor={n(y ? y[1] - 273.15 : NaN)} unidad="°C" /><Dato nombre="Humedad" valor={n(f.HR_int, 0)} unidad="%" />
+      <TemperaturaAire vista={vista} /><Dato nombre="Humedad" valor={n(f.HR_int, 0)} unidad="%" />
       <Dato nombre="CO₂ interior" valor={n(f.CO2_ppm, 0)} unidad="ppm" /><Dato nombre="Agua en plantas" valor={n(y?.[22], 0)} unidad="L" />
       <Dato nombre="Agua en sustrato" valor={n(y?.[21], 0)} unidad="L" /><Dato nombre="Fruto (carbohidrato)" valor={n(y ? y[15] * 187.5 : NaN, 2)} unidad="kg" />
     </div></section>,
@@ -92,8 +93,8 @@ function NodoSistema({ data }) {
 }
 const TIPOS_SISTEMA = { sistema: NodoSistema };
 const POSICIONES = {
-  horizontal: { exterior: { x: 0, y: 38 }, estado: { x: 325, y: 38 }, control: { x: 735, y: 38 } },
-  vertical: { exterior: { x: 0, y: 0 }, estado: { x: 0, y: 225 }, control: { x: 0, y: 520 } },
+  horizontal: { exterior: { x: 0, y: 12 }, estado: { x: 300, y: 12 }, control: { x: 670, y: 12 } },
+  vertical: { exterior: { x: 0, y: 0 }, estado: { x: 0, y: 205 }, control: { x: 0, y: 435 } },
 };
 function GrafoVariables({ sim, vertical, ancho, seleccion, setSeleccion }) {
   const { fitView } = useReactFlow(), inicializado = useNodesInitialized();

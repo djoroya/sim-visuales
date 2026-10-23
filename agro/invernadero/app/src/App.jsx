@@ -146,9 +146,11 @@ export default function App() {
         {sim.errorCarga && <p className="error-campana" role="alert">{sim.errorCarga} <button onClick={sim.reintentaCarga}>Reintentar carga</button></p>}
         {!sim.listo && !sim.errorCarga && <p role="status">Cargando datos de clima…</p>}
         <VariablesSistema sim={sim} />
-        <EstadoActuadores sim={sim} />
         <div className="visual-sistema">
+          <div className="columna-invernadero">
+          <EstadoActuadores sim={sim} />
           <section className="escena-compacta" aria-label="Vista 3D del invernadero"><VisorSeguro><Suspense fallback={<div className="cargando">Cargando 3D…</div>}><Vista3D vista={vista} latitud={sim.latitud} compacta /></Suspense></VisorSeguro></section>
+          </div>
           <FlujosResumen vista={vista} />
         </div>
         <div className="fecha-sistema">{vista && sim.listo ? fecha(vista.t, TIEMPOS[sim.tiempo].anio) : 'Cargando clima…'} · {TIEMPOS[sim.tiempo].nombre}</div>
