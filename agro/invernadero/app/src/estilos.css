@@ -250,7 +250,7 @@ table.flujos td { padding: 3px 4px; border-top: 1px solid #22385a; } table.flujo
 
 .grafo-transferencias { height: 290px; width: 100%; }
 .grafo-transferencias.vertical { height: 460px; }
-.nodo-materia { height: 46px; display: grid; place-items: center; text-align: center; border: 1px solid #3a5a86; border-radius: 7px; padding: 5px; background: #1a3355; color: #e8eef6; font-size: 13px; }
+.nodo-materia { height: 60px; display: grid; place-items: center; text-align: center; border: 1px solid #3a5a86; border-radius: 7px; padding: 5px; background: #1a3355; color: #e8eef6; font-size: 18px; line-height: 1.15; }
 .nodo-materia strong { font-weight: 500; }
 .materia-exterior { border-style: dashed; background: #102238; }
 .materia-control { background: #102e32; border-color: #38766a; }
@@ -272,11 +272,11 @@ table.flujos td { padding: 3px 4px; border-top: 1px solid #22385a; } table.flujo
 @media(max-width:760px) { .estado-actuadores { grid-template-columns: 1fr; } }
 .flujos-carbono { --flujo: #72d6b9; }
 .grafo-transferencias.grafo-carbono { height: 460px; }
-.grafo-carbono .nodo-materia { height: 68px; }
-.nodo-materia small { color: #a9bdd5; font-size: 10px; line-height: 1.3; }
+.grafo-carbono .nodo-materia { height: 95px; }
+.nodo-materia small { color: #a9bdd5; font-size: 14px; line-height: 1.3; }
 @media(max-width:760px) { .grafo-transferencias.grafo-carbono { height: 600px; } }
 .grafo-transferencias .react-flow__edgelabel-renderer { z-index: 10; }
-.etiqueta-caudal { position: absolute; pointer-events: all; font: 12px/1.3 system-ui,sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; background: #13294a; border: 1px solid #2d4466; border-radius: 4px; padding: 3px 5px; cursor: pointer; }
+.etiqueta-caudal { position: absolute; pointer-events: all; font: 18px/1.3 system-ui,sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; background: #13294a; border: 1px solid #2d4466; border-radius: 4px; padding: 3px 5px; cursor: pointer; }
 .etiqueta-caudal:hover, .etiqueta-caudal:focus-visible { border-color: currentColor; }
 
 /* Mitad para la escena; mitad para los flujos y sus actuadores. */
@@ -327,8 +327,9 @@ table.flujos td { padding: 3px 4px; border-top: 1px solid #22385a; } table.flujo
   .columna-flujos .estado-actuadores details { grid-column: 1 / -1; }
 }
 .nodo-materia .consulta-temperatura { align-items: center; }
-.nodo-materia .consulta-temperatura strong { font-size: 12px; }
-.nodo-materia .dato-sistema small { margin-left: 3px; font-size: 9px; }
+.nodo-materia .consulta-temperatura strong { font-size: 16px; }
+.nodo-materia .consulta-temperatura > span { font-size: 16px; }
+.nodo-materia .dato-sistema small { margin-left: 3px; font-size: 13px; }
 
 .plegable-movil { min-width: 0; }
 .plegable-movil > summary { display: none; }

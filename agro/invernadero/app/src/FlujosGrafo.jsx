@@ -19,12 +19,7 @@ function AristaMateria(props) {
   const [path, labelX, labelY] = flujo.id === 'aire-cubierta'
     ? getBezierPath({ ...props, curvature: 0.45 })
     : getSmoothStepPath({ ...props, borderRadius: 12, offset: 24 });
-  // Las etiquetas viven en una capa HTML sobre todas las aristas. Buscamos un
-  // hueco cercano que no tape las cifras del interior de ningún nodo.
-  const obstaculos = props.data.bloques;
-  const xSeguro = Math.max(Math.min(...obstaculos.map((b) => b.x)) - 25, Math.min(Math.max(...obstaculos.map((b) => b.x)) + 145, labelX));
-  const candidatos = [0, -25, 25, -50, 50, -75, 75].flatMap((dy) => [0, -60, 60].map((dx) => ({ x: xSeguro + dx, y: labelY + dy })));
-  const hueco = candidatos.find(({ x, y }) => x >= Math.min(...obstaculos.map((b) => b.x)) - 25 && x <= Math.max(...obstaculos.map((b) => b.x)) + 145 && !obstaculos.some((b) => x + 54 > b.x - 5 && x - 54 < b.x + 125 && y + 12 > b.y - 5 && y - 12 < b.y + b.h + 5)) || { x: labelX, y: labelY };
+  const hueco = props.data.etiqueta;
   return <><g opacity={actual.valor < 0.001 ? 0.3 : 1}>
     <title>{flujo.nombre}: {actual.de} → {actual.a}, {etiqueta}. {flujo.reversible ? 'Intercambio reversible.' : 'Flujo de sentido único.'}</title>
     <BaseEdge id={props.id} path={path} markerStart={props.markerStart} markerEnd={props.markerEnd}
@@ -47,11 +42,14 @@ function GrafoMateria({ grafo, vertical, ancho, selecciona }) {
     const raf = requestAnimationFrame(() => {
       const actuales = getNodes(), xs = actuales.map((n) => n.position.x), ys = actuales.map((n) => n.position.y);
       const x = Math.min(...xs) - 85, y = Math.min(...ys) - 45;
-      fitBounds({ x, y, width: Math.max(...xs) + 120 + 85 - x, height: Math.max(...ys) + (grafo.unidad === 'kg C/h' ? 68 : 46) + 45 - y }, { padding: 0.02, maxZoom: 1, duration: 0 });
+      fitBounds({ x, y, width: Math.max(...xs) + 120 + 85 - x, height: Math.max(...ys) + (grafo.unidad === 'kg C/h' ? 95 : 60) + 45 - y }, { padding: 0.02, maxZoom: 1, duration: 0 });
     });
     return () => cancelAnimationFrame(raf);
   }, [listo, ancho, fitBounds, getNodes, grafo]);
-  const edges = useMemo(() => grafo.flujos.map((f) => {
+  const edges = useMemo(() => {
+    const ocupados = nodes.map((n) => ({ ...n.position, w: 120, h: grafo.unidad === 'kg C/h' ? 95 : 60 }));
+    const limites = { izq: Math.min(...ocupados.map((b) => b.x)) - 85, der: Math.max(...ocupados.map((b) => b.x)) + 205, arriba: Math.min(...ocupados.map((b) => b.y)) - 45, abajo: Math.max(...ocupados.map((b) => b.y + b.h)) + 45 };
+    return grafo.flujos.map((f) => {
     const de = nodes.find((n) => n.id === f.de).position, a = nodes.find((n) => n.id === f.a).position;
     let origen, destino;
     if (f.retorno) origen = destino = Position.Right;
@@ -60,11 +58,27 @@ function GrafoMateria({ grafo, vertical, ancho, selecciona }) {
     else if (f.rodea) origen = destino = grafo.unidad === 'kg C/h' ? (f.id === 'tallo-aire' ? Position.Right : Position.Left) : vertical ? Position.Left : Position.Top;
     else if (Math.abs(a.x - de.x) >= Math.abs(a.y - de.y)) { origen = a.x > de.x ? Position.Right : Position.Left; destino = a.x > de.x ? Position.Left : Position.Right; }
     else { origen = a.y > de.y ? Position.Bottom : Position.Top; destino = a.y > de.y ? Position.Top : Position.Bottom; }
+    const alto = grafo.unidad === 'kg C/h' ? 95 : 60;
+    const punto = (p, lado) => ({ x: p.x + (lado === Position.Left ? 0 : lado === Position.Right ? 120 : 60), y: p.y + (lado === Position.Top ? 0 : lado === Position.Bottom ? alto : alto / 2) });
+    const desde = punto(de, origen), hasta = punto(a, destino);
+    const props = { sourceX: desde.x, sourceY: desde.y, sourcePosition: origen, targetX: hasta.x, targetY: hasta.y, targetPosition: destino };
+    const [, lx, ly] = f.id === 'aire-cubierta' ? getBezierPath({ ...props, curvature: 0.45 }) : getSmoothStepPath({ ...props, borderRadius: 12, offset: 24 });
+    // Reserva espacio para la cifra más larga, aunque el valor actual sea cero.
+    // Se calcula una sola vez por topología, sin mover rótulos en cada fotograma.
+    const w = grafo.unidad === 'kg C/h' ? 156 : 112, h = 34;
+    const x0 = Math.max(limites.izq + w / 2, Math.min(limites.der - w / 2, lx));
+    const y0 = Math.max(limites.arriba + h / 2, Math.min(limites.abajo - h / 2, ly));
+    const xs = [x0, limites.izq+w/2, limites.der-w/2, ...ocupados.flatMap((b) => [b.x-w/2-5, b.x+b.w+w/2+5])];
+    const ys = [y0, limites.arriba+h/2, limites.abajo-h/2, ...ocupados.flatMap((b) => [b.y-h/2-5, b.y+b.h+h/2+5])];
+    const candidatos = xs.flatMap((x) => ys.map((y) => ({x,y}))).sort((a,b) => Math.hypot(a.x-x0,a.y-y0)-Math.hypot(b.x-x0,b.y-y0));
+    const etiqueta = candidatos.find(({x,y}) => x-w/2 >= limites.izq && x+w/2 <= limites.der && y-h/2 >= limites.arriba && y+h/2 <= limites.abajo && !ocupados.some((b) => x+w/2+4 > b.x && x-w/2-4 < b.x+b.w && y+h/2+4 > b.y && y-h/2-4 < b.y+b.h)) || {x:x0,y:y0};
+    ocupados.push({ x: etiqueta.x-w/2, y: etiqueta.y-h/2, w, h });
     const marker = { type: MarkerType.ArrowClosed, color: grafo.color, width: 16, height: 16 };
     return { id: f.id, source: f.de, target: f.a, sourceHandle: `s-${origen}`, targetHandle: `t-${destino}`, type: 'materia',
-      data: { flujo: f, selecciona, bloques: nodes.map((n) => ({ ...n.position, h: grafo.unidad === 'kg C/h' ? 68 : 46 })) }, markerEnd: marker, ...(f.reversible && { markerStart: marker }),
+      data: { flujo: f, selecciona, etiqueta }, markerEnd: marker, ...(f.reversible && { markerStart: marker }),
       ariaLabel: `${f.nombre}: ${f.reversible ? 'intercambio reversible' : 'sentido único'}` };
-  }), [grafo, vertical]);
+    });
+  }, [grafo, vertical]);
   return <ReactFlow nodes={nodes} onNodesChange={onNodesChange} edges={edges} nodeTypes={NODE_TYPES} edgeTypes={EDGE_TYPES}
     fitView fitViewOptions={{ padding: 0.09, maxZoom: 1 }} minZoom={0.3} maxZoom={1.3}
     nodesConnectable={false} nodesDraggable={false} nodesFocusable={false} edgesReconnectable={false} deleteKeyCode={null}
@@ -76,7 +90,7 @@ export default function FlujosGrafo({ vista }) {
   const caja = useRef(null), grafo = GRAFOS_FLUJOS[tipo], valores = vista?.flujos || {}, vertical = ancho > 0 && ancho < 420;
   // La altura sigue la caja usada por fitBounds: evita bandas vacías cuando
   // el encuadre queda limitado por el ancho, también en móviles apaisados.
-  const proporcion = vertical ? (tipo === 'carbono' ? 658 / 490 : 508.4 / 515) : (tipo === 'carbono' ? 668 / 780 : 316 / 780);
+  const proporcion = vertical ? (tipo === 'carbono' ? 685 / 490 : 522.4 / 515) : (tipo === 'carbono' ? 695 / 780 : 330 / 780);
   const altura = Math.ceil(Math.min(vertical ? Infinity : tipo === 'carbono' ? 460 : 290, ancho * proporcion));
   useEffect(() => { const ro = new ResizeObserver(([e]) => setAncho(e.contentRect.width)); ro.observe(caja.current); return () => ro.disconnect(); }, []);
   const elegido = grafo.flujos.find((f) => f.id === seleccion), actual = elegido && describeFlujo(grafo, elegido, valores);
