@@ -7,8 +7,8 @@ ideal de la que se mide. La idea viene del modelo de pila que hice en el proyect
 electricidad y calor a un invernadero de tomate. Este repositorio lo reescribe desde las ecuaciones,
 con **datos públicos**: los del proyecto son del consorcio y no se publican.
 
-**Estado: paso 1 de 4** (celda en régimen permanente, comprobada con medidas). Siguen la dinámica de
-ánodo y cátodo con combustible mixto, el núcleo en JavaScript y el visor. Plan completo:
+**Estado: pasos 1 y 2 de 4**: celda en régimen permanente comprobada con medidas, y pila dinámica con
+combustible mixto. Siguen el núcleo en JavaScript y el visor. Plan completo:
 `personalpage/plans/PLAN_PILA_SOFC.md`.
 
 | Archivo | Qué hace |
@@ -17,6 +17,8 @@ con **datos públicos**: los del proyecto son del consorcio y no se publican.
 | `python/celda.py` | Celda en régimen permanente: Nernst en la interfaz del ánodo, pérdidas de concentración, óhmica y de activación |
 | `python/datos_delzotto.py` | Curvas tensión–corriente de Del Zotto et al. (2021) a `datos/delzotto-iv.json` |
 | `python/ajuste.py` | Ajuste con 750 y 800 °C y predicción de 700 °C; escribe `datos/celda-ajuste.json` |
+| `python/dinamica.py` | Pila dinámica (traslación de `SOFC_meca` de AGRO-SOFC): ánodo y cátodo con 7 especies, válvulas, combustible mixto H₂/CO/CH₄, Nernst de la mezcla, tensión termoneutra y calor; tensión «original» (N₀E − rI) o «calibrada» (pérdidas del paso 1) |
+| `python/prueba_dinamica.py` | Solución exacta de primer orden, conservación de átomos y coherencia con la celda del paso 1 |
 
 ## Comprobaciones
 
@@ -31,6 +33,22 @@ con **datos públicos**: los del proyecto son del consorcio y no se publican.
   (ajustada libre, la resistencia óhmica se va a 0,001 Ω; harían falta medidas de impedancia). Se fija
   un valor típico de electrolito de YSZ (0,15 Ω·cm² a 750 °C, 80 kJ/mol) y se ajustan la activación
   y la difusión. Con todo libre el error baja a 10–12 mV, pero con parámetros sin sentido físico.
+
+Pila dinámica (`python python/prueba_dinamica.py`):
+
+- **Solución exacta**: con un escalón de corriente, cada presión parcial es una exponencial de primer
+  orden con τ = V/(K_v R T); la integración la reproduce con error 2·10⁻⁹ del salto.
+- **Conservación**: con biogás reformado (H₂, CO, CH₄, CO₂, H₂O) y escalones de carga, los átomos de H, C,
+  O y N que entran son los que salen más los acumulados (desequilibrio ≤ 3·10⁻⁸ de lo que entra).
+- **Coherencia con el paso 1**: en régimen permanente, con el ensayo de Del Zotto, da la tensión de la
+  celda calibrada con 0,35 mV de diferencia (la presión total del cátodo baja un poco al consumirse O₂;
+  la celda usa fracciones molares).
+- **Por qué no se compara con OPEM**: su versión 1.4 evalúa el retardo de primer orden en s = 1 en lugar
+  de s = 0 en régimen permanente, y en Padulles-II resta el agua producida en lugar de sumarla.
+- **Parámetros del original**: con K = 0,005 kmol/(atm·s) la válvula deja salir 5 mol/s a 1 atm, mucho
+  para 30 celdas: el ánodo queda casi en vacío (milésimas de atm) y responde en centésimas de segundo; y
+  0,5 m³ de volumen es enorme para una pila así. El visor fija K desde el caudal nominal (1 atm) y un
+  volumen de pocos litros, que da segundos de respuesta, como en Padullés.
 
 A 750 °C, 50 % de H₂ y 2 A (0,57 A/cm²), de una tensión de Nernst de 1,010 V se pierden 71 mV por
 concentración, 86 por resistencia y 41 por activación: quedan 0,812 V.
