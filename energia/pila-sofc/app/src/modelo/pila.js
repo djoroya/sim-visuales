@@ -94,3 +94,14 @@ export function pasoRK4(pila, y, h, I, qa, qc) {
   for (let i = 0; i < 14; i++) o[i] = y[i] + (h / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
   return o;
 }
+
+/** Presiones parciales (Pa) en régimen permanente: p = (entrada + reacción) / K_v, especie a especie. */
+export function regimen(pila, I, qa, qc) {
+  const kva = kv(pila, pila.K_an), kvc = kv(pila, pila.K_cat), [ra, rc] = velocidades(I, qa, pila.N0);
+  const pa = qa.map((q, i) => (q + ra[i]) / kva[i]), pc = qc.map((q, i) => (q + rc[i]) / kvc[i]);
+  return pa.some((p) => p < 0) || pc.some((p) => p < 0) ? null : [pa, pc];
+}
+/** Poder calorífico inferior (J/mol) de los combustibles, a 25 °C. */
+export const PCI = { H2: 241.8e3, CO: 283.0e3, CH4: 802.3e3 };
+/** Potencia química del combustible que entra (W), con el poder calorífico inferior. */
+export const potenciaCombustible = (qa) => qa[H2] * PCI.H2 + qa[CO] * PCI.CO + qa[CH4] * PCI.CH4;

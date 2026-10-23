@@ -7,8 +7,8 @@ ideal de la que se mide. La idea viene del modelo de pila que hice en el proyect
 electricidad y calor a un invernadero de tomate. Este repositorio lo reescribe desde las ecuaciones,
 con **datos públicos**: los del proyecto son del consorcio y no se publican.
 
-**Estado: pasos 1 a 3 de 4**: celda comprobada con medidas, pila dinámica con combustible mixto y núcleo
-en JavaScript. Falta el visor. Plan completo:
+**Estado: los 4 pasos**: celda comprobada con medidas, pila dinámica con combustible mixto, núcleo
+en JavaScript y visor interactivo (`app/`). Plan completo:
 `personalpage/plans/PLAN_PILA_SOFC.md`.
 
 | Archivo | Qué hace |
@@ -22,6 +22,7 @@ en JavaScript. Falta el visor. Plan completo:
 | `python/referencia.py` | Pila del visor (`datos/pila-visor.json`) y trayectorias de referencia para el JavaScript |
 | `app/src/modelo/` | Núcleo en JavaScript: `termo.js`, `celda.js`, `pila.js` (Runge–Kutta 4) |
 | `app/prueba/compara.mjs` | JavaScript frente a Python (`cd app && npm run prueba`) |
+| `app/src/` | Visor (React): esquema vivo de la celda, cifras, de dónde sale la tensión, series y curva de polarización (`npm run dev`, `npm run build`) |
 
 ## Comprobaciones
 
@@ -61,6 +62,11 @@ La pila del visor (30 celdas de 100 cm², biogás reformado, 70 % de utilizació
 por compartimento, τ del ánodo ≈ 2 s) enseña lo que pasa al pedir demasiado: a 30 A da 759 W y 360 W de
 calor; a 45 A (79 % del combustible) el H₂ del ánodo cae a 0,10 atm, la tensión a 0,53 V por celda y la
 potencia **baja** a 712 W mientras el calor sube a 966 W.
+
+El visor deja pedir de 0 a 60 A, pero como la electrónica de una pila real no deja bajar de 0,6 V por
+celda (el níquel del ánodo se oxidaría), limita la corriente a la que la pila sostiene con ese combustible y
+ese caudal (44,9 A con el biogás nominal) y lo avisa. Se puede cambiar el combustible (biogás reformado,
+gas de síntesis, H₂), su caudal y el aire.
 
 A 750 °C, 50 % de H₂ y 2 A (0,57 A/cm²), de una tensión de Nernst de 1,010 V se pierden 71 mV por
 concentración, 86 por resistencia y 41 por activación: quedan 0,812 V.
