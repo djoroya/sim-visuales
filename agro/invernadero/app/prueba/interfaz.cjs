@@ -59,6 +59,7 @@ const { chromium } = require('playwright');
     await dosis.click(); await dosis.press('ControlOrMeta+A'); await dosis.pressSequentially('99', { delay: 100 });
     assert.equal(await dosis.inputValue(), '99'); await dosis.press('Tab'); assert.equal(await dosis.inputValue(), '12');
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByText('Exterior, estado y control', { exact: true }).click();
     await page.waitForFunction(() => {
       const n = document.querySelector('.lienzo-dependencias .react-flow__node');
       return n && n.getBoundingClientRect().width > 250;

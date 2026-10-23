@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { ReactFlow, ReactFlowProvider, Handle, Position, MarkerType, EdgeLabelRenderer, BaseEdge, getSmoothStepPath, getBezierPath, useNodesState, useNodesInitialized, useReactFlow } from '@xyflow/react';
 import { GRAFOS_FLUJOS, describeFlujo } from './modelo/grafo-flujos.js';
 import { TemperaturaAire } from './TemperaturaAire.jsx';
+import { PlegableMovil } from './PlegableMovil.jsx';
 const ContextoFlujos = createContext(null);
 const numero = (v) => v > 0 && v < 0.001 ? '<0,001' : v.toLocaleString('es-ES', { maximumFractionDigits: v > 0 && v < 0.1 ? 3 : 1 });
 function NodoMateria({ data }) {
@@ -73,13 +74,19 @@ function GrafoMateria({ grafo, vertical, ancho, selecciona }) {
 export default function FlujosGrafo({ vista }) {
   const [tipo, setTipo] = useState('energia'), [seleccion, setSeleccion] = useState(null), [ancho, setAncho] = useState(0);
   const caja = useRef(null), grafo = GRAFOS_FLUJOS[tipo], valores = vista?.flujos || {}, vertical = ancho > 0 && ancho < 420;
+  // La altura sigue la caja usada por fitBounds: evita bandas vacías cuando
+  // el encuadre queda limitado por el ancho, también en móviles apaisados.
+  const proporcion = vertical ? (tipo === 'carbono' ? 658 / 490 : 508.4 / 515) : (tipo === 'carbono' ? 668 / 780 : 316 / 780);
+  const altura = Math.ceil(Math.min(vertical ? Infinity : tipo === 'carbono' ? 460 : 290, ancho * proporcion));
   useEffect(() => { const ro = new ResizeObserver(([e]) => setAncho(e.contentRect.width)); ro.observe(caja.current); return () => ro.disconnect(); }, []);
   const elegido = grafo.flujos.find((f) => f.id === seleccion), actual = elegido && describeFlujo(grafo, elegido, valores);
   return <section className={`flujos-resumen flujos-${tipo}`} aria-label="Flujos de materia y energía">
     <div className="cabecera-flujos"><h2>Qué entra, se transfiere y sale</h2><div className="selector-flujos" role="group" aria-label="Tipo de flujo">{[['energia','Energía'],['agua','Agua'],['carbono','Carbono']].map(([k,v]) => <button key={k} aria-pressed={tipo === k} onClick={() => { setTipo(k); setSeleccion(null); }}>{v}</button>)}</div></div>
-    <div className={`grafo-transferencias${tipo === 'carbono' ? ' grafo-carbono' : ''}${vertical ? ' vertical' : ''}`} ref={caja}>
+    <div className={`grafo-transferencias${tipo === 'carbono' ? ' grafo-carbono' : ''}${vertical ? ' vertical' : ''}`} ref={caja}
+      style={ancho > 0 ? { height: altura } : undefined}>
       {ancho > 0 && <ContextoFlujos.Provider value={{ grafo, valores, seleccion, y: vista?.y, vista }}><ReactFlowProvider key={`${tipo}-${vertical}`}><GrafoMateria grafo={grafo} vertical={vertical} ancho={ancho} selecciona={setSeleccion} /></ReactFlowProvider></ContextoFlujos.Provider>}
     </div>
-    <p className="nota-flujos" aria-live="polite">{elegido ? <>{elegido.nombre}: <strong>{actual.de} → {actual.a}, {numero(actual.valor)} {grafo.unidad}</strong>.</> : <>→ Sentido único · ↔ Intercambio reversible. Pulsa una conexión para ver su nombre y sentido actual.</>} {tipo === 'carbono' && 'CO₂ del aire → azúcares → fruto, hojas y tallo. Flujos en kg de carbono por hora; los nodos muestran carbohidratos CH₂O y su carbono (40 %). La respiración devuelve carbono al aire.'} Intercambios principales; balances completos en el detalle.</p>
+    {elegido && <p className="seleccion-flujo" role="status">{elegido.nombre}: <strong>{actual.de} → {actual.a}, {numero(actual.valor)} {grafo.unidad}</strong>.</p>}
+    <PlegableMovil titulo="Cómo leer el grafo"><p className="nota-flujos">→ Sentido único · ↔ Intercambio reversible. Pulsa una conexión para ver su nombre y sentido actual. {tipo === 'carbono' && 'CO₂ del aire → azúcares → fruto, hojas y tallo. Flujos en kg de carbono por hora; los nodos muestran carbohidratos CH₂O y su carbono (40 %). La respiración devuelve carbono al aire.'} Intercambios principales; balances completos en el detalle.</p></PlegableMovil>
   </section>;
 }

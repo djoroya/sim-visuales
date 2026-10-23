@@ -1,4 +1,5 @@
 import { EstadoActuadores } from './EstadoActuadores.jsx';
+import { PlegableMovil } from './PlegableMovil.jsx';
 import { VisorSeguro } from './VisorSeguro.jsx';
 import { useEffect, useState } from "react";
 import { ReactFlow, Handle, Position, BaseEdge, getBezierPath, ReactFlowProvider } from "@xyflow/react";
@@ -145,16 +146,16 @@ export default function App() {
         </header>
         {sim.errorCarga && <p className="error-campana" role="alert">{sim.errorCarga} <button onClick={sim.reintentaCarga}>Reintentar carga</button></p>}
         {!sim.listo && !sim.errorCarga && <p role="status">Cargando datos de clima…</p>}
-        <VariablesSistema sim={sim} />
+        <PlegableMovil titulo="Exterior, estado y control"><VariablesSistema sim={sim} /></PlegableMovil>
         <div className="visual-sistema">
           <div className="columna-invernadero">
-          <EstadoActuadores sim={sim} />
+          <PlegableMovil titulo="Calefactor, ventanas y sombreo"><EstadoActuadores sim={sim} /></PlegableMovil>
           <section className="escena-compacta" aria-label="Vista 3D del invernadero"><VisorSeguro><Suspense fallback={<div className="cargando">Cargando 3D…</div>}><Vista3D vista={vista} latitud={sim.latitud} compacta /></Suspense></VisorSeguro></section>
           </div>
           <FlujosResumen vista={vista} />
         </div>
         <div className="fecha-sistema">{vista && sim.listo ? fecha(vista.t, TIEMPOS[sim.tiempo].anio) : 'Cargando clima…'} · {TIEMPOS[sim.tiempo].nombre}</div>
-        <TotalesResumen vista={vista} />
+        <PlegableMovil titulo="Consumos acumulados"><TotalesResumen vista={vista} /></PlegableMovil>
         <details className="ajustes-contexto"><summary>Cambiar clima, fecha y equipo de calefacción</summary><div className="barra">
           <label>Clima <select aria-label="Clima" value={sim.tiempo} onChange={(e) => sim.setTiempo(e.target.value)}>{Object.entries(TIEMPOS).map(([k,v]) => <option key={k} value={k}>{v.nombre}</option>)}</select></label>
           <label>Inicio <select aria-label="Inicio" value={sim.inicio} onChange={(e) => sim.setInicio(+e.target.value)}>{TIEMPOS[sim.tiempo].inicios.map(([d,m]) => <option key={d} value={d}>{m}</option>)}{!TIEMPOS[sim.tiempo].inicios.some(([d]) => d === sim.inicio) && <option value={sim.inicio}>{fecha(sim.inicio * 86400, TIEMPOS[sim.tiempo].anio).split(',')[0]}</option>}</select></label>

@@ -324,3 +324,18 @@ table.flujos td { padding: 3px 4px; border-top: 1px solid #22385a; } table.flujo
 .nodo-materia .consulta-temperatura { align-items: center; }
 .nodo-materia .consulta-temperatura strong { font-size: 12px; }
 .nodo-materia .dato-sistema small { margin-left: 3px; font-size: 9px; }
+
+.plegable-movil { min-width: 0; }
+.plegable-movil > summary { display: none; }
+.seleccion-flujo { color: var(--suave); font-size: 11px; margin: 6px 0; }
+@media(max-width:760px) {
+  .plegable-movil > summary { display: list-item; cursor: pointer; padding: 8px 0; color: #a9bdd5; font-size: 12px; }
+  .plegable-movil { border-top: 1px solid var(--borde); }
+  .plegable-movil[open] > summary { margin-bottom: 6px; }
+  .cabecera-sistema { margin-bottom: 8px; }
+  .cabecera-sistema p { display: none; }
+  .columna-invernadero { gap: 6px; }
+  .flujos-resumen .plegable-movil { margin-top: 6px; }
+  .flujos-resumen .plegable-movil > summary { padding: 6px 0 0; font-size: 11px; }
+  .cabecera-flujos { margin-bottom: 4px; }
+}
