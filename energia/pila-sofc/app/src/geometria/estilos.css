@@ -43,3 +43,4 @@ html, body, #raiz { margin: 0; height: 100%; background: var(--navy); color: var
   .ayuda { display: none; }
   .etq.capa .caja { transform: translateX(-62%); }
 }
+.portada .capa-etiquetas { display: none; }

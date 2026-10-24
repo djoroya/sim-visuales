@@ -273,6 +273,8 @@ export function creaEscena(contenedor, { incrustado = false } = {}) {
   iones.forEach((_, i) => mIon.setColorAt(i, color.set(C.ion)));
   electrones.forEach((_, i) => mElec.setColorAt(i, color.set(C.electron)));
 
+  // vueltas por segundo de cada tipo de partícula (en la portada, múltiplos de 1/6: el bucle de 6 s cierra)
+  const VEL = { comb: 0.06, aire: 0.09, ion: 0.35, elec: 0.3 };
   const especieComb = (u, s) => {
     let acum = 0;
     for (const e of ORDEN) { acum += ENTRA[e] + (SALE[e] - ENTRA[e]) * s; if (u < acum) return e; }
@@ -280,12 +282,12 @@ export function creaEscena(contenedor, { incrustado = false } = {}) {
   };
   function particulas(t) {
     comb.forEach((p, i) => {
-      const s = (p.fase + t * 0.06) % 1, e = especieComb(p.u, s);
+      const s = (p.fase + t * VEL.comb) % 1, e = especieComb(p.u, s);
       tmp.position.set(-5 + 10 * s, yComb, p.z); tmp.scale.setScalar(0.17); tmp.updateMatrix();
       mComb.setMatrixAt(i, tmp.matrix); mComb.setColorAt(i, color.set(COLORES[e]));
     });
     aire.forEach((p, i) => {
-      const s = (p.fase + t * 0.09) % 1, o2 = O2_ENTRA + (O2_SALE - O2_ENTRA) * s;
+      const s = (p.fase + t * VEL.aire) % 1, o2 = O2_ENTRA + (O2_SALE - O2_ENTRA) * s;
       const e = p.u < o2 ? "O2" : p.u < O2_ENTRA ? null : "N2";   // el O₂ que falta se ha ido como iones
       tmp.position.set(p.x, yAire, -5 + 10 * s); tmp.scale.setScalar(e ? 0.17 : 0); tmp.updateMatrix();
       mAire.setMatrixAt(i, tmp.matrix); mAire.setColorAt(i, color.set(COLORES[e ?? "N2"]));
@@ -293,13 +295,13 @@ export function creaEscena(contenedor, { incrustado = false } = {}) {
     const [, an, , ca] = capasDet;
     const yTop = ca.g.position.y + ca.h * 0.6, yBot = an.g.position.y + an.h * 0.4;
     iones.forEach((p, i) => {
-      const s = (p.fase + t * 0.35) % 1;
+      const s = (p.fase + t * VEL.ion) % 1;
       tmp.position.set(p.x, yTop + (yBot - yTop) * s, p.z); tmp.scale.setScalar(0.11); tmp.updateMatrix();
       mIon.setMatrixAt(i, tmp.matrix);
     });
     electrones.forEach((p, i) => {
       // los del ánodo bajan por el interconector hacia la celda de abajo; al cátodo llegan desde la de arriba
-      const s = (p.fase + t * 0.3) % 1;
+      const s = (p.fase + t * VEL.elec) % 1;
       const [y0, y1] = p.arriba ? [sup.g.position.y + HI, ca.g.position.y + ca.h] : [an.g.position.y, inf.g.position.y];
       const y = y0 + (y1 - y0) * s;
       tmp.position.set(p.x, y, p.z); tmp.scale.setScalar(0.1); tmp.updateMatrix();
@@ -322,14 +324,18 @@ export function creaEscena(contenedor, { incrustado = false } = {}) {
   ponPaso(0);
   for (const k of Object.keys(capas)) actual[k] = capas[k];
 
+  function colocaCapas() {
+    let y = 0;
+    for (const c of capasDet) { c.g.position.y = y; y += c.h + 1.3 * explota; }
+    detalle.position.y = 5 - y / 2;
+  }
+
   function marco(ahora) {
     const dt = Math.min(0.05, (ahora - ultimo) / 1000); ultimo = ahora; t += dt;
     const k = 1 - Math.exp(-dt * 3);
     for (const c of Object.keys(capas)) actual[c] += (capas[c] - actual[c]) * k;
     explota += (PASOS[paso].explota - explota) * k;
-    let y = 0;
-    for (const c of capasDet) { c.g.position.y = y; y += c.h + 1.3 * explota; }
-    detalle.position.y = 5 - y / 2;
+    colocaCapas();
     if (camAnim) {
       camara.position.lerp(camObj, k); controles.target.lerp(tarObj, k);
       if (camara.position.distanceTo(camObj) < 0.05) camAnim = false;
@@ -355,8 +361,32 @@ export function creaEscena(contenedor, { incrustado = false } = {}) {
   };
   const ro = new ResizeObserver(ajusta); ro.observe(contenedor); ajusta();
   id = requestAnimationFrame(marco);
+  /**
+   * Un fotograma exacto para el bucle de la portada (sin reloj ni suavizados): la vista del paso 5 con
+   * la cámara oscilando alrededor del despiece. Periódico en `periodo` segundos.
+   */
+  function fotograma(tt, { periodo = 6, oscila = 0.35, desplaza = 0.27, lejos: l = 1.15, v, cam = [DX + 13, 8.5, 17], obj = [DX, 5.3, 0], explota: e = 0.6 } = {}) {
+    cancelAnimationFrame(id);
+    Object.assign(VEL, { comb: 1 / periodo, aire: 1 / periodo, ion: 3 / periodo, elec: 3 / periodo });
+    const vis = v ?? { detalle: 1, interDetalle: 0.32, pen: 0.5, sup: 1, combustible: 1, aire: 1, iones: 1 };
+    for (const k of Object.keys(capas)) actual[k] = capas[k] = vis[k] ?? 0;
+    explota = e; colocaCapas();
+    const o = new THREE.Vector3(...obj), rel = new THREE.Vector3(...cam).sub(o).multiplyScalar(l);
+    rel.applyAxisAngle(new THREE.Vector3(0, 1, 0), oscila * Math.sin((2 * Math.PI * tt) / periodo));
+    camara.position.copy(o).add(rel); camara.lookAt(o);
+    const { clientWidth: w, clientHeight: h } = contenedor;
+    camara.aspect = w / h;
+    camara.setViewOffset(w, h, -desplaza * w, 0, w, h);      // el objeto, a la derecha: a la izquierda va el texto
+    camara.updateProjectionMatrix();
+    particulas(tt);
+    aplicaVisibilidad();
+    gasComb.visible = gasAire.visible = false;               // sin flechas: apuntarían al titular
+    renderer.render(escena, camara);
+  }
+
   return {
     ponPaso,
+    fotograma,
     ponGiro: (g) => { giro = g; },
     destruye: () => { cancelAnimationFrame(id); ro.disconnect(); controles.dispose(); renderer.dispose(); contenedor.innerHTML = ""; },
   };

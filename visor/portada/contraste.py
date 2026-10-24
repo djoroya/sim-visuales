@@ -32,6 +32,10 @@ DIAPOSITIVAS = [
      PUBLICO / "portada/pastoreo/pastoreo.webm", (0.80, 0.50)),
     ("nanohilo", PUBLICO / "portada/nanohilo/nanohilo-poster.png",
      PUBLICO / "portada/nanohilo/nanohilo.webm", (0.72, 0.50)),
+    ("sofc", PUBLICO / "portada/sofc/sofc-poster.png",
+     PUBLICO / "portada/sofc/sofc.webm", (0.74, 0.50)),
+    ("grulla", PUBLICO / "portada/grulla/grulla-poster.png",
+     PUBLICO / "portada/grulla/grulla.webm", (0.72, 0.50)),
 ]
 LISTON = 6.7
 

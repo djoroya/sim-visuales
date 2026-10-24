@@ -65,4 +65,15 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("raiz")).render(<App />);
+/** ?portada: solo el lienzo, para grabar el bucle del carrusel de djoroya.com fotograma a fotograma. */
+function Portada() {
+  const lienzo = useRef(null);
+  useEffect(() => {
+    const e = creaEscena(lienzo.current);
+    window.__portada = e;
+    return () => e.destruye();
+  }, []);
+  return <div className="geo portada"><div className="lienzo" ref={lienzo} /></div>;
+}
+
+createRoot(document.getElementById("raiz")).render(new URLSearchParams(location.search).has("portada") ? <Portada /> : <App />);

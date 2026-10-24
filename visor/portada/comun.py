@@ -24,7 +24,7 @@ from PIL import Image, ImageFilter
 
 RAIZ = Path(__file__).resolve().parent
 SIM = RAIZ.parents[1]                       # proyectos/sim-visuales
-WEB = SIM.parents[1] / "personalpage" / "web"
+WEB = SIM.parent / "personalpage" / "web"     # sim-visuales y personalpage, juntos en laboral/
 DESTINO_WEB = WEB / "public" / "sims" / "portada"
 TMP = RAIZ / "tmp"
 
