@@ -7,11 +7,13 @@ temperatura del catalizador.
 
 | Archivo | Qué hace |
 |---|---|
-| `python/termo.py` | Termodinámica de los gases: polinomios de Shomate (NIST) |
+| `python/termo.py` | Termodinámica de los gases: polinomios de Shomate (NIST), con los tramos de alta temperatura comprobados frente a JANAF |
 | `python/equilibrio.py` | Equilibrio químico por minimización de Gibbs: CH₄, CO, CO₂, H₂, H₂O, N₂, Ar y grafito (hollín) con conservación de átomos |
 | `python/valida_literatura.py` | Valida el equilibrio con fuentes públicas: tablas JANAF y umbrales de hollín publicados |
 | `python/dinamica.py` | Reformador autotérmico dinámico: caja bien mezclada, cinco reacciones globales y temperatura del catalizador |
 | `python/prueba_dinamica.py` | Límite de reacciones rápidas = equilibrio, conservación de átomos y balance de energía |
+| `python/referencia.py` | Mapa del hollín (`datos/hollin.json`) y trayectoria de referencia para JavaScript (`datos/referencia-js.json`) |
+| `app/` | Visor en React: el modelo dinámico en JavaScript (Euler implícito), el esquema y el mapa del hollín |
 
 ## Equilibrio
 
@@ -47,11 +49,24 @@ Comprobaciones (`python python/prueba_dinamica.py`):
 - Estacionario adiabático (≈ 727 °C con las entradas de ejemplo): la entalpía que entra es la que sale
   más las pérdidas, con 10⁻¹³ de diferencia.
 
+## Visor
+
+```bash
+cd app && npm install
+npm run prueba        # JavaScript frente a Python: 0,03 K y 0,003 puntos de composición
+npm run dev
+```
+
+El gas responde en décimas de segundo y el catalizador en una hora, así que el visor integra con Euler
+implícito (Newton con jacobiano numérico) en pasos de un segundo: una hora de reformador cuesta ~350 ms.
+La compilación (`npm run build`) se copia a `personalpage/web/public/sims/reformador/`.
+
 ## Fuentes
 
-- D. Creaser et al. (2011), *Modeling study of 5 kWe-scale autothermal diesel fuel reformer*, Applied
+- D. Creaser, X. Karatzas, B. Lundberg, L. J. Pettersson, J. Dawody (2011), *Modeling study of 5 kWe-scale autothermal diesel fuel reformer*, Applied
   Catalysis A 404, 129–140, doi:10.1016/j.apcata.2011.07.023.
 - J. Xu, G. F. Froment (1989), *Methane steam reforming, methanation and water-gas shift: I. Intrinsic
   kinetics*, AIChE Journal 35, 88–96.
-- S. Parmar et al. (2009), *Hydrogen generation from diesel*, Journal of Power Sources 194, 1007–1020.
+- R. D. Parmar, A. Kundu, K. Karan (2009), *Thermodynamic analysis of diesel reforming process: mapping of carbon
+  formation boundary and representative independent reactions*, Journal of Power Sources 194, 1007–1020.
 - NIST Chemistry WebBook (Shomate) y tablas NIST-JANAF, 4.ª ed. (1998): C-002, C-067, C-093, C-095, H-064.

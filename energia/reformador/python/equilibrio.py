@@ -40,13 +40,14 @@ ATOMOS = np.array([
 _JANAF_C = np.array([
     [298.15, 0.0, 5.740], [400, 1.039, 8.713], [500, 2.365, 11.662], [600, 3.943, 14.533],
     [700, 5.716, 17.263], [800, 7.637, 19.826], [900, 9.672, 22.221], [1000, 11.795, 24.457],
-    [1100, 13.989, 26.548], [1200, 16.240, 28.506],
+    [1100, 13.989, 26.548], [1200, 16.240, 28.506], [1300, 18.539, 30.346], [1400, 20.879, 32.080],
+    [1500, 23.253, 33.718], [1600, 25.658, 35.270],
 ])
 
 
 def gibbs_grafito(T):
     """J/mol, con el mismo convenio que Shomate (H de formación del grafito = 0, S absoluta)."""
-    if not 298.15 <= T <= 1200:
+    if not 298.15 <= T <= 1600:
         raise ValueError(f"T fuera de la tabla del grafito: {T} K")
     H = np.interp(T, _JANAF_C[:, 0], _JANAF_C[:, 1]) * 1e3
     S = np.interp(T, _JANAF_C[:, 0], _JANAF_C[:, 2])
@@ -102,6 +103,25 @@ def atomos_diesel(caudal_diesel, vapor_combustible, aire_combustible, wC=0.844, 
     vapor = caudal_diesel * vapor_combustible / 18.015e-3
     aire = caudal_diesel * aire_combustible / 28.96e-3          # aire seco: 78,08 % N₂, 20,95 % O₂, 0,93 % Ar
     return np.array([nC, nH + 2 * vapor, vapor + 2 * 0.2095 * aire, 2 * 0.7808 * aire, 0.0093 * aire])
+
+
+X_DIESEL = (0.156 / 1.008) / (0.844 / 12.011)          # H/C del diésel: CH₂,₂₀
+
+
+def hay_hollin(sc, o2c, T, x=X_DIESEL):
+    """¿Forma grafito el equilibrio de CHₓ con S/C moles de vapor y O₂/C moles de O₂ (en aire) por átomo de C?"""
+    aire = o2c / 0.2095
+    b = np.array([1.0, x + 2 * sc, sc + 2 * o2c, 2 * 0.7808 * aire, 0.0093 * aire])
+    return equilibrio(b, T)[ESPECIES.index("C")] > 1e-6
+
+
+def sc_minima(o2c, T, x=X_DIESEL, tope=4.0):
+    """Frontera del hollín: la mínima S/C sin grafito (bisección)."""
+    a, b = 0.0, tope
+    for _ in range(30):
+        m = (a + b) / 2
+        a, b = (m, b) if hay_hollin(m, o2c, T, x) else (a, m)
+    return b
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@
    una fuente independiente.
 2. Hollín: la mínima relación vapor/carbono (S/C) para que el equilibrio no forme grafito con un
    diésel CH₂,₂₀ a 1 bar, frente a lo publicado:
-   - Parmar et al. (2009), J. Power Sources 194, 1007–1020: en reformado con vapor hace falta
+   - Parmar, Kundu y Karan (2009), J. Power Sources 194, 1007–1020: en reformado con vapor hace falta
      S/C ≈ 2 entre 400 y 800 °C; en autotérmico a 750 °C con O₂/C de 0,125 a 0,25, S/C > 1,25.
    - Ahmed y Föger, recogido en la misma revisión: sin hollín con S/C 1,8 y O₂/C 0,25, o con
      S/C 1,5 y O₂/C 0,5.
@@ -20,10 +20,8 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
-from equilibrio import ESPECIES, equilibrio  # noqa: E402
+from equilibrio import hay_hollin, sc_minima  # noqa: E402
 from termo import R, gibbs  # noqa: E402
-
-X_H = (0.156 / 1.008) / (0.844 / 12.011)
 
 # ΔfG° (kJ/mol) de NIST-JANAF; el H₂ es la referencia (0)
 JANAF_T = [700, 800, 900, 1000, 1100, 1200]
@@ -48,22 +46,6 @@ for i, T in enumerate(JANAF_T):
     print(f"   {T:5d}   {k3[0]:10.4g} / {k3[1]:<10.4g}   {k4[0]:7.4g} / {k4[1]:<7.4g}  ({100 * e3:+.3f} %, {100 * e4:+.3f} %)")
 print(f"   diferencia máxima {100 * peor:.3f} %")
 ok &= peor < 1e-3
-
-
-def hay_hollin(sc, o2c, T):
-    aire = o2c / 0.2095
-    b = np.array([1.0, X_H + 2 * sc, sc + 2 * o2c, 2 * 0.7808 * aire, 0.0093 * aire])
-    n = equilibrio(b, T)
-    return n[ESPECIES.index("C")] > 1e-6
-
-
-def sc_minima(o2c, T):
-    """Bisección en S/C: la frontera del hollín."""
-    a, b = 0.0, 4.0
-    for _ in range(30):
-        m = (a + b) / 2
-        a, b = (m, b) if hay_hollin(m, o2c, T) else (a, m)
-    return b
 
 
 print("\n2. Mínima S/C sin hollín (diésel CH₂,₂₀, 1 bar)")
