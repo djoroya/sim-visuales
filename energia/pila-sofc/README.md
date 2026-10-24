@@ -71,6 +71,8 @@ gas de síntesis, H₂), su caudal y el aire.
 A 750 °C, 50 % de H₂ y 2 A (0,57 A/cm²), de una tensión de Nernst de 1,010 V se pierden 71 mV por
 concentración, 86 por resistencia y 41 por activación: quedan 0,812 V.
 
+El reformador (equilibrio y dinámica) tiene su propio directorio: `../reformador`.
+
 ## Reproducir
 
 ```bash
