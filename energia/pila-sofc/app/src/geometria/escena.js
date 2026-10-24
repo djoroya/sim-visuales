@@ -347,7 +347,7 @@ export function creaEscena(contenedor, { incrustado = false } = {}) {
     renderer.setSize(w, h); etiquetas.setSize(w, h);
     camara.aspect = w / h;
     const vertical = w / h < 1;
-    lejos = vertical ? Math.min(2.2, 0.8 * h / w) : 1;
+    lejos = vertical ? Math.min(2.4, h / w) : 1;
     // en vertical el panel tapa la parte de abajo: se sube la imagen
     if (vertical) camara.setViewOffset(w, h, 0, h * 0.14, w, h); else camara.clearViewOffset();
     camara.updateProjectionMatrix();
