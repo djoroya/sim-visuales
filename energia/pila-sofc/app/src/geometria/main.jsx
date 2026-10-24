@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { COLORES, NOMBRE, PASOS, creaEscena } from "./escena.js";
+import { ATOMO, PASOS, creaEscena } from "./escena.js";
 import "./estilos.css";
 
 const TEXTOS = [
@@ -44,14 +44,15 @@ function App() {
   }, []);
 
   const [titulo, texto] = TEXTOS[paso];
-  const especies = paso === 3 ? ["H2", "CO", "CH4", "H2O", "CO2"] : paso === 4 ? ["O2", "N2"] : null;
+  // leyenda de átomos (las moléculas van en bolas y varillas con los colores de cada átomo)
+  const atomos = paso === 3 ? [["H", "hidrógeno"], ["C", "carbono"], ["O", "oxígeno"]] : paso === 4 ? [["O", "oxígeno"], ["N", "nitrógeno"]] : null;
   return (
     <div className="geo">
       <div className="lienzo" ref={lienzo} />
       <div className={`panel-paso ${tour ? "tour" : ""}`}>
         <div className="paso-cab"><span className="num">{paso + 1}/{PASOS.length}</span><h2>{titulo}</h2></div>
         <p>{texto}</p>
-        {especies && <div className="leyenda-geo">{especies.map((e) => <span key={e}><i style={{ background: COLORES[e] }} />{NOMBRE[e]}</span>)}
+        {atomos && <div className="leyenda-geo">{atomos.map(([e, nombre]) => <span key={e}><i style={{ background: ATOMO[e] }} />{e} {nombre}</span>)}
           {paso === 4 && <><span><i style={{ background: "#ff7b25" }} />O²⁻</span><span><i style={{ background: "#7df9ff" }} />e⁻</span></>}</div>}
         {!tour && <div className="paso-nav">
           <button onClick={() => setPaso((p) => Math.max(0, p - 1))} disabled={paso === 0}>←</button>

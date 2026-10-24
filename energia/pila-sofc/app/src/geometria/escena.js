@@ -88,7 +88,43 @@ function etiqueta(html, pos, clase = "") {
   return o;
 }
 
-const chips = (fr) => Object.entries(fr).map(([e, f]) => `<span class="chip"><i style="background:${COLORES[e]}"></i>${NOMBRE[e]} ${(f * 100).toLocaleString("es-ES", { maximumFractionDigits: 1 })} %</span>`).join(" ");
+const chips = (fr) => Object.entries(fr).map(([e, f]) => `<span class="chip">${NOMBRE[e]} ${(f * 100).toLocaleString("es-ES", { maximumFractionDigits: 1 })} %</span>`).join(" · ");
+
+// Moléculas de bolas y varillas, con los colores habituales de cada átomo (algo aclarados para el
+// fondo oscuro). Distancias y ángulos aproximados, a escala de dibujo: H₂O a 104,5°, CH₄ en tetraedro.
+export const ATOMO = { H: "#f2f2ee", C: "#8a93a1", O: "#e5533d", N: "#5b8def" };
+const RADIO_ATOMO = { H: 0.075, C: 0.105, N: 0.105, O: 0.11 };
+const MOLECULAS = (() => {
+  const t = 0.21 / Math.sqrt(3), a = (104.5 / 2) * Math.PI / 180;
+  return {
+    H2: [[["H", -0.11, 0, 0], ["H", 0.11, 0, 0]], [[0, 1]]],
+    O2: [[["O", -0.13, 0, 0], ["O", 0.13, 0, 0]], [[0, 1]]],
+    N2: [[["N", -0.13, 0, 0], ["N", 0.13, 0, 0]], [[0, 1]]],
+    CO: [[["C", -0.12, 0, 0], ["O", 0.13, 0, 0]], [[0, 1]]],
+    CO2: [[["O", -0.25, 0, 0], ["C", 0, 0, 0], ["O", 0.25, 0, 0]], [[0, 1], [1, 2]]],
+    H2O: [[["O", 0, 0.05, 0], ["H", -0.2 * Math.sin(a), 0.05 - 0.2 * Math.cos(a), 0], ["H", 0.2 * Math.sin(a), 0.05 - 0.2 * Math.cos(a), 0]], [[0, 1], [0, 2]]],
+    CH4: [[["C", 0, 0, 0], ["H", t, t, t], ["H", t, -t, -t], ["H", -t, t, -t], ["H", -t, -t, t]], [[0, 1], [0, 2], [0, 3], [0, 4]]],
+  };
+})();
+function geometriaMolecula(especie) {
+  const [atomos, enlaces] = MOLECULAS[especie], piezas = [], c = new THREE.Color();
+  const pinta = (g, hex) => {
+    g = g.index ? g.toNonIndexed() : g;
+    c.set(hex); const n = g.attributes.position.count, col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
+    g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    return g;
+  };
+  for (const [el, x, y, z] of atomos) piezas.push(pinta(new THREE.IcosahedronGeometry(RADIO_ATOMO[el], el === "H" ? 0 : 1).translate(x, y, z), ATOMO[el]));   // hidrógenos, con menos caras (por el móvil)
+  for (const [i, j] of enlaces) {
+    const pa = new THREE.Vector3(...atomos[i].slice(1)), pb = new THREE.Vector3(...atomos[j].slice(1));
+    const g = new THREE.CylinderGeometry(0.025, 0.025, pa.distanceTo(pb), 6);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), pb.clone().sub(pa).normalize()));
+    g.translate(...pa.clone().add(pb).multiplyScalar(0.5).toArray());
+    piezas.push(pinta(g, "#c3cad3"));
+  }
+  return mergeGeometries(piezas);
+}
 const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
 // ---------- escena ----------
@@ -260,12 +296,23 @@ export function creaEscena(contenedor, { incrustado = false } = {}) {
     return m;
   };
   const azar = (() => { let s = 7; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
-  const comb = Array.from({ length: CANALES.length * 16 }, (_, i) => ({ z: CANALES[i % CANALES.length], fase: azar(), u: azar() }));
-  const aire = Array.from({ length: CANALES.length * 14 }, (_, i) => ({ x: CANALES[i % CANALES.length], fase: azar(), u: azar() }));
+  // cada molécula gira sobre un eje propio, una o dos vueltas cada 6 s (en la portada el bucle cierra)
+  const giroAzar = () => ({ eje: new THREE.Vector3(azar() - 0.5, azar() - 0.5, azar() - 0.5).normalize(), ang: azar() * 6.283, w: (azar() < 0.5 ? 1 : -1) * (1 + Math.floor(azar() * 2)) * 6.283 / 6 });
+  const comb = Array.from({ length: CANALES.length * 16 }, (_, i) => ({ z: CANALES[i % CANALES.length], fase: azar(), u: azar(), ...giroAzar() }));
+  const aire = Array.from({ length: CANALES.length * 14 }, (_, i) => ({ x: CANALES[i % CANALES.length], fase: azar(), u: azar(), ...giroAzar() }));
   const iones = Array.from({ length: 60 }, () => ({ x: -4.5 + 9 * azar(), z: -4.5 + 9 * azar(), fase: azar() }));
   const electrones = Array.from({ length: 70 }, (_, i) => ({ arriba: i % 2, x: -4.6 + 9.2 * azar(), z: NERVIOS[Math.floor(azar() * 11)], fase: azar() }));
-  const mComb = instancias(comb.length, ["detalle", "combustible"], inf.g);
-  const mAire = instancias(aire.length, ["detalle", "aire"], sup.g);
+  // una malla por especie; cada partícula se dibuja en la de su especie de ese instante y en las demás, a escala cero
+  const molecula = (especie, n, claves, padre) => {
+    const m = new THREE.InstancedMesh(geometriaMolecula(especie), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, transparent: true }), n);
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    m.frustumCulled = false;
+    padre.add(m); registra(claves, m);
+    return m;
+  };
+  const mComb = Object.fromEntries(ORDEN.map((e) => [e, molecula(e, comb.length, ["detalle", "combustible"], inf.g)]));
+  const mAire = Object.fromEntries(["O2", "N2"].map((e) => [e, molecula(e, aire.length, ["detalle", "aire"], sup.g)]));
+  const CERO = new THREE.Matrix4().makeScale(0, 0, 0), ESCALA_MOL = 1.55;
   const mIon = instancias(iones.length, ["detalle", "iones"], detalle);
   const mElec = instancias(electrones.length, ["detalle", "iones"], detalle);
   mIon.material.emissive = new THREE.Color(C.ion); mIon.material.emissiveIntensity = 0.5;
@@ -281,17 +328,20 @@ export function creaEscena(contenedor, { incrustado = false } = {}) {
     return "CH4";
   };
   function particulas(t) {
+    const coloca = (mallas, i, e, p, x, y, z) => {
+      tmp.position.set(x, y, z); tmp.quaternion.setFromAxisAngle(p.eje, p.ang + t * p.w); tmp.scale.setScalar(ESCALA_MOL); tmp.updateMatrix();
+      for (const [k, m] of Object.entries(mallas)) m.setMatrixAt(i, k === e ? tmp.matrix : CERO);
+    };
     comb.forEach((p, i) => {
-      const s = (p.fase + t * VEL.comb) % 1, e = especieComb(p.u, s);
-      tmp.position.set(-5 + 10 * s, yComb, p.z); tmp.scale.setScalar(0.17); tmp.updateMatrix();
-      mComb.setMatrixAt(i, tmp.matrix); mComb.setColorAt(i, color.set(COLORES[e]));
+      const s = (p.fase + t * VEL.comb) % 1;
+      coloca(mComb, i, especieComb(p.u, s), p, -5 + 10 * s, yComb, p.z);
     });
     aire.forEach((p, i) => {
       const s = (p.fase + t * VEL.aire) % 1, o2 = O2_ENTRA + (O2_SALE - O2_ENTRA) * s;
       const e = p.u < o2 ? "O2" : p.u < O2_ENTRA ? null : "N2";   // el O₂ que falta se ha ido como iones
-      tmp.position.set(p.x, yAire, -5 + 10 * s); tmp.scale.setScalar(e ? 0.17 : 0); tmp.updateMatrix();
-      mAire.setMatrixAt(i, tmp.matrix); mAire.setColorAt(i, color.set(COLORES[e ?? "N2"]));
+      coloca(mAire, i, e, p, p.x, yAire, -5 + 10 * s);
     });
+    tmp.quaternion.identity();
     const [, an, , ca] = capasDet;
     const yTop = ca.g.position.y + ca.h * 0.6, yBot = an.g.position.y + an.h * 0.4;
     iones.forEach((p, i) => {
@@ -307,7 +357,8 @@ export function creaEscena(contenedor, { incrustado = false } = {}) {
       tmp.position.set(p.x, y, p.z); tmp.scale.setScalar(0.1); tmp.updateMatrix();
       mElec.setMatrixAt(i, tmp.matrix);
     });
-    for (const m of [mComb, mAire, mIon, mElec]) { m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; }
+    for (const m of [...Object.values(mComb), ...Object.values(mAire)]) m.instanceMatrix.needsUpdate = true;
+    for (const m of [mIon, mElec]) { m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; }
   }
 
   // --- animación ---
