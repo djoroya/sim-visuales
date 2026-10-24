@@ -17,9 +17,25 @@ import comun
 p = argparse.ArgumentParser()
 p.add_argument("nombre")
 p.add_argument("--fundido", type=int, default=0)
+p.add_argument("--niebla", default="", help="'a,b': azul de la marca hasta a (fracción del ancho) y fundido hasta b")
 p.add_argument("--crf", type=int, default=0, help="suma a los CRF por defecto (más = más ligero)")
 a = p.parse_args()
 crudo = comun.TMP / f"crudo-{a.nombre}"
+if a.niebla:
+    # Escenas que llenan todo el encuadre (el invernadero por dentro): la mitad izquierda se funde
+    # con el azul de la portada, donde va el titular. Suave (smoothstep) para que no haya bandas.
+    import numpy as np
+    from PIL import Image
+    x0, x1 = (float(v) for v in a.niebla.split(","))
+    u = np.clip((np.linspace(0, 1, comun.ANCHO) - x0) / (x1 - x0), 0, 1)
+    alfa = (1 - u * u * (3 - 2 * u))[None, :, None]
+    navy = comun.rgb(comun.NAVY)[None, None, :] * 255
+    dest = comun.TMP / f"niebla-{a.nombre}"
+    dest.mkdir(parents=True, exist_ok=True)
+    for f in sorted(crudo.glob("f*.png")):
+        im = np.asarray(Image.open(f).convert("RGB"), float)
+        Image.fromarray((im * (1 - alfa) + navy * alfa).round().astype(np.uint8)).save(dest / f.name)
+    crudo = dest
 pesos = comun.poster(crudo / "f0000.png", f"{a.nombre}-poster")
 bucle = crudo
 if a.fundido:

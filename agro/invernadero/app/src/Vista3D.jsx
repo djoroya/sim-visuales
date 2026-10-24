@@ -223,14 +223,20 @@ function construye(escena) {
   return o;
 }
 
-export function Vista3D({ vista, latitud, compacta = false }) {
+/**
+ * `portada`: modo para grabar el bucle del carrusel de djoroya.com. Sin controles ni bucle propio: cámara
+ * fija ({ pos, obj } en coordenadas del invernadero, `desplaza` corre la imagen a la derecha), cielo con
+ * nubosidad fija y ventanas, pantalla y calefacción quietas, para que nada parpadee de un día a otro.
+ * Dibuja una vez por cada `vista` y llama a `onDibujado`.
+ */
+export function Vista3D({ vista, latitud, compacta = false, portada = null, onDibujado }) {
   const caja = useRef(null), estado = useRef(null);
   const [dentro, setDentro] = useState(() => new URLSearchParams(location.search).get("camara") === "dentro");
   const cambiaCamara = () => { const k = dentro ? "fuera" : "dentro"; estado.current?.encuadra(k); setDentro(!dentro); };
 
   useEffect(() => {
     const el = caja.current;
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: !!portada });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.55;
     el.appendChild(renderer.domElement);
@@ -257,25 +263,33 @@ export function Vista3D({ vista, latitud, compacta = false }) {
       dentro: { pos: o.inv.localToWorld(new THREE.Vector3(-11.5, 1.7, -0.2)), obj: o.inv.localToWorld(new THREE.Vector3(-4, 0.9, -2.6)), min: 0.5 },
     };
     const encuadra = (k) => { const e = encuadres[k]; for (const c of o.cotas) c.visible = k === "fuera"; camara.position.copy(e.pos); controles.target.copy(e.obj); controles.minDistance = e.min; controles.update(); };
-    encuadra(new URLSearchParams(location.search).get("camara") === "dentro" ? "dentro" : "fuera");
+    if (portada) {
+      encuadres.portada = { pos: o.inv.localToWorld(new THREE.Vector3(...portada.pos)), obj: o.inv.localToWorld(new THREE.Vector3(...portada.obj)), min: 0.1 };
+      encuadra("portada"); for (const c of o.cotas) c.visible = false;
+    } else encuadra(new URLSearchParams(location.search).get("camara") === "dentro" ? "dentro" : "fuera");
     estado.current = { o, escena, renderer, rehaceEntorno, encuadra, zoom: (factor) => { camara.position.sub(controles.target).multiplyScalar(factor).add(controles.target); controles.update(); } };
-    const tam = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h); camara.aspect = w / h; camara.fov = compacta ? 44 : w / h < 0.8 ? 62 : 50; camara.updateProjectionMatrix(); };   // en vertical, más ángulo
+    const tam = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h); camara.aspect = w / h; camara.fov = portada?.fov ?? (compacta ? 44 : w / h < 0.8 ? 62 : 50);
+      if (portada?.desplaza) camara.setViewOffset(w, h, -portada.desplaza * w, 0, w, h);
+      camara.updateProjectionMatrix(); };   // en vertical, más ángulo
     tam(); const ro = new ResizeObserver(tam); ro.observe(el);
-    let raf; const bucle = () => { controles.update(); renderer.render(escena, camara); raf = requestAnimationFrame(bucle); }; bucle();
+    estado.current.dibuja = () => renderer.render(escena, camara);
+    let raf; const bucle = () => { controles.update(); renderer.render(escena, camara); raf = requestAnimationFrame(bucle); };
+    if (!portada) bucle();
     return () => { cancelAnimationFrame(raf); ro.disconnect(); controles.dispose(); entorno?.dispose(); pmrem.dispose(); renderer.dispose(); el.removeChild(renderer.domElement); };
   }, []);
 
   // cada vez que avanza la simulación
   useEffect(() => {
     if (!vista || !estado.current) return;
-    const { o, escena, renderer, rehaceEntorno } = estado.current, f = vista.flujos, y = vista.y;
+    const { o, escena, renderer, rehaceEntorno } = estado.current, y = vista.y;
+    const f = portada ? { ...vista.flujos, apertura: 0.2, sombreo_cierre: 0, calefaccion: 0 } : vista.flujos;
     const { az, elev } = posicionSol(vista.t, latitud);
     const d = direccion(az, elev);
     o.luzSol.position.copy(d).multiplyScalar(50);
     // nubes: la radiación de los datos frente a la de un cielo despejado con el sol a esa altura
     // (la «que ve» la cubierta en GES es ~0,4 de la global)
     const sol = Math.max(f.sol_exterior / 500, 0), despejado = 0.4 * 1000 * Math.max(Math.sin(elev), 0) ** 1.15;
-    const nubes = elev > 3 * rad ? 1 - Math.min(Math.max(sol / Math.max(despejado, 1), 0), 1) : 0;
+    const nubes = portada?.nubes ?? (elev > 3 * rad ? 1 - Math.min(Math.max(sol / Math.max(despejado, 1), 0), 1) : 0);
     const u = o.cieloFisico.material.uniforms;
     u.sunPosition.value.copy(d); u.turbidity.value = 2 + 9 * nubes; u.rayleigh.value = 2 - 1.2 * nubes;
     // ya de noche cerrada, el modelo de cielo deja una franja parda: mejor un fondo oscuro liso
@@ -341,9 +355,11 @@ export function Vista3D({ vista, latitud, compacta = false }) {
       });
     }
     o.tomates.count = n; o.tomates.instanceMatrix.needsUpdate = true; if (o.tomates.instanceColor) o.tomates.instanceColor.needsUpdate = true;
+    if (portada) { estado.current.dibuja(); onDibujado?.(); }
   }, [vista, latitud]);
 
   const f = vista?.flujos, sp = vista ? posicionSol(vista.t, latitud) : null;
+  if (portada) return <div className="vista3d" ref={caja} />;
   return (
     <div className="vista3d" ref={caja}>
       <button className="boton-camara" onClick={cambiaCamara}>{compacta ? (dentro ? "Fuera" : "Dentro") : (dentro ? "Ver el invernadero" : "Entre las plantas")}</button>

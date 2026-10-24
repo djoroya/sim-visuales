@@ -147,3 +147,28 @@ function muestrea(st) {
 }
 
 const foto = (st) => ({ t: st.t, y: Array.from(st.y), flujos: { ...st.flujos }, historial: st.historial.slice(), cultivo: st.cultivo.slice(), inicio: st.inicio, energia: { ...st.energia }, racimos: (st.racimos || []).map((r) => ({ ...r })) });
+
+/**
+ * Una foto al día (a la misma hora) de una campaña entera, calculada de un tirón y sin React: el
+ * bucle del carrusel de djoroya.com la usa para ver crecer las plantas y madurar los racimos.
+ * Ajustes: los de por defecto del visor (ventilación a 25 °C, sin calefacción ni CO₂).
+ */
+export async function fotosCampana({ tiempo = "hortimed", inicio = 105, dias = 72, hora = 12 } = {}) {
+  const d = await (await fetch(TIEMPOS[tiempo].archivo)).json();
+  const clima = creaClima(d);
+  const aj = { ...AJUSTES, arranqueWh: 0, motorVentanasWh: 0, motorPantallaWh: 0, ventanasModo: "auto", aperturaVentanas: 0, sombreoModo: "retirada", sombreo: 50,
+    riego: "auto", dosisRiego: 4, T_sp_vent: 25 + T_K, calefaccion: false, T_sp_calef: 16 + T_K, added_CO2: 0, equipo: "electrico", ...(d.latitud != null && { latitud: d.latitud }) };
+  const st = { clima, t: inicio * 86400 + hora * 3600, historial: [], cultivo: [], flujos: {}, energia: { calor: 0, gas: 0, electrica: 0, co2: 0 }, racimos: [], gdNuevo: RACIMOS.cadaGD };
+  st.inicio = st.t; st.y = estadoInicial(clima, st.t); st.frutoAnterior = st.y[15];
+  const f = (t, y) => derivadas(t, y, clima, aj);
+  const fotos = [];
+  for (let k = 0; k < dias; k++) {
+    const fin = st.inicio + k * 86400;
+    while (st.t < fin) {
+      st.y = pasoROS2(f, st.t, st.y, PASO); st.t += PASO;
+      if (st.t % MUESTRA === 0) { st.flujos = {}; derivadas(st.t, st.y, clima, aj, st.flujos); muestrea(st); actualizaRacimos(st); }
+    }
+    st.flujos = {}; derivadas(st.t, st.y, clima, aj, st.flujos); fotos.push(foto(st));
+  }
+  return { fotos, latitud: d.latitud ?? 53.193583 };
+}

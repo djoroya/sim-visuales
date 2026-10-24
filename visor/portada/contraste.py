@@ -27,6 +27,8 @@ import comun
 PUBLICO = comun.WEB / "public" / "sims"
 # (nombre, poster, video o None, foco) -- el mismo foco que en Hero.astro
 DIAPOSITIVAS = [
+    ("invernadero", PUBLICO / "portada/invernadero/invernadero-poster.png",
+     PUBLICO / "portada/invernadero/invernadero.webm", (0.74, 0.50)),
     ("grieta", PUBLICO / "grieta/portada/grieta-portada-fija.png", None, (0.72, 0.65)),
     ("pastoreo", PUBLICO / "portada/pastoreo/pastoreo-poster.png",
      PUBLICO / "portada/pastoreo/pastoreo.webm", (0.80, 0.50)),
