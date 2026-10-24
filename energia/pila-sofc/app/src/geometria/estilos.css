@@ -1,0 +1,45 @@
+:root { --navy:#0d1f36; --borde:#2d4466; --on:#e8eef6; --suave:#8fa3bd; --warm:#f59e0b; }
+* { box-sizing: border-box; }
+html, body, #raiz { margin: 0; height: 100%; background: var(--navy); color: var(--on); font: 14px/1.45 system-ui, sans-serif; overflow: hidden; }
+.geo { position: relative; width: 100%; height: 100%; }
+.lienzo { position: absolute; inset: 0; }
+.lienzo canvas { display: block; }
+.capa-etiquetas { position: absolute; inset: 0; }
+
+.etq { pointer-events: none; }
+.etq .caja { font-size: 12px; line-height: 1.35; color: var(--on); background: rgba(13,31,54,.85); border: 1px solid var(--borde);
+  padding: 3px 8px; border-radius: 5px; white-space: nowrap; }
+.etq.capa .caja { transform: translateX(calc(50% + 14px)); }
+.etq.elec b { color: var(--warm); }
+.etq.suave .caja { color: var(--suave); background: none; border: 0; }
+.etq.comp .caja { white-space: normal; width: 210px; }
+.chip { display: inline-block; margin-right: 6px; white-space: nowrap; }
+.chip i, .leyenda-geo i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 3px; vertical-align: 0; }
+
+.panel-paso { position: absolute; left: 16px; bottom: 16px; width: min(420px, calc(100% - 32px)); background: rgba(19,41,74,.92);
+  border: 1px solid var(--borde); border-radius: 8px; padding: 12px 14px; }
+.paso-cab { display: flex; align-items: baseline; gap: 10px; }
+.paso-cab h2 { margin: 0; font-size: 17px; }
+.num { color: var(--warm); font-weight: 700; font-variant-numeric: tabular-nums; }
+.panel-paso p { margin: 6px 0 8px; color: #c9d4e3; }
+.leyenda-geo { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; font-size: 12.5px; }
+.paso-nav { display: flex; align-items: center; gap: 6px; }
+.paso-nav button { background: #0d1f36; color: var(--on); border: 1px solid var(--borde); border-radius: 5px; padding: 3px 10px; cursor: pointer; font: inherit; }
+.paso-nav button:disabled { opacity: .35; cursor: default; }
+.paso-nav .punto { width: 11px; height: 11px; padding: 0; border-radius: 50%; }
+.paso-nav .punto.activo { background: var(--warm); border-color: var(--warm); }
+.giro { margin-left: auto; color: var(--suave); font-size: 12.5px; }
+.ayuda { position: absolute; right: 16px; top: 10px; margin: 0; color: var(--suave); font-size: 12px; pointer-events: none; }
+
+/* para grabar: panel más grande y sin controles */
+.panel-paso.tour { width: min(560px, calc(100% - 32px)); font-size: 16px; }
+.panel-paso.tour h2 { font-size: 21px; }
+
+@media (max-width: 600px) {
+  .panel-paso { left: 8px; right: 8px; bottom: 8px; width: auto; padding: 10px 12px; font-size: 13px; }
+  .panel-paso p { margin: 4px 0 6px; }
+  .etq .caja { font-size: 10px; padding: 2px 5px; }
+  .etq.comp .caja { width: 150px; }
+  .ayuda { display: none; }
+  .etq.capa .caja { transform: translateX(-62%); }
+}
