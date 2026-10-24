@@ -10,7 +10,7 @@ import "./estilos.css";
 
 const q = new URLSearchParams(location.search);
 const v3 = (k, def) => (q.get(k) ? q.get(k).split(",").map(Number) : def);
-const PORTADA = { pos: v3("pos", [-9, 1.3, -0.3]), obj: v3("obj", [-5.5, 1.0, 1.6]), fov: +(q.get("fov") || 40), desplaza: +(q.get("desplaza") || 0), nubes: 0.25 };
+const PORTADA = { pos: v3("pos", [-9, 1.4, -0.3]), obj: v3("obj", [-5.5, 0.35, 1.6]), fov: +(q.get("fov") || 40), desplaza: +(q.get("desplaza") || 0), nubes: 0.25 };
 const DIAS = +(q.get("dias") || 72), INICIO = +(q.get("inicio") || 105);
 
 function Portada() {
