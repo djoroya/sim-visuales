@@ -13,13 +13,16 @@ select, button { background: var(--navy2); color: var(--on); border: 1px solid v
 .cuerpo { display: grid; grid-template-columns: 1fr 340px; gap: 10px; }
 .diagrama { position: relative; background: var(--navy2); border-radius: 6px; overflow: hidden; }
 .esquema { display: block; width: 100%; height: auto; }
-.esq-titulo { fill: var(--on); font-size: 14px; font-weight: 600; }
-.esq-suave { fill: var(--suave); font-size: 12px; }
-.esq-gas { fill: #0d1f36; font-size: 12px; font-weight: 700; }
+.esq-titulo { fill: var(--on); font-size: 17px; font-weight: 700; }
+.esq-suave { fill: var(--suave); font-size: 14px; }
+.esq-gas { fill: var(--on); font-size: 18px; font-weight: 700; }
+.esq-comp text { fill: var(--on); font-size: 15px; font-variant-numeric: tabular-nums; }
+.esq-capa-n { fill: var(--suave); font-size: 15px; font-weight: 600; }
+.esq-e { fill: #ef4444; font-size: 18px; font-weight: 700; }
 .esq-capa { fill: #f3efe6; font-size: 13px; } .esq-capa.oscuro { fill: #2b3442; }
-.esq-ion { fill: #b8860b; font-size: 13px; font-weight: 700; }
-.esq-elec { fill: var(--warm); font-size: 14px; font-weight: 600; }
-.esq-calor { fill: #e07a5f; font-size: 14px; font-weight: 600; }
+.esq-ion { fill: #f2c14e; font-size: 20px; font-weight: 700; }
+.esq-elec { fill: var(--warm); font-size: 17px; font-weight: 700; }
+.esq-calor { fill: #e07a5f; font-size: 17px; font-weight: 700; }
 .aviso { background: rgba(224,122,95,.16); border: 1px solid #e07a5f; color: #ffd9cc; border-radius: 6px; padding: 8px 10px; font-size: 13px; margin: 0 0 8px; }
 .esq-leyenda text { fill: var(--suave); font-size: 11px; }
 .columna { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
