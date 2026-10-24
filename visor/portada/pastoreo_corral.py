@@ -10,8 +10,8 @@ fija:
 
 Mismo estilo que pastoreo.py (perros ámbar con halo y estela, rebaño azulado,
 fondo azul marino) más las vallas del corral y la puerta discontinua. La partida
-entera pasa en 5 s, el rebaño se queda un segundo dentro y un fundido vuelve al
-principio. Toda la acción, en el 40 % derecho de la banda.
+entera pasa en 5 s y el rebaño se queda un segundo dentro; el vídeo se ve una vez (sin
+fundido final). Toda la acción, en el 40 % derecho de la banda.
 """
 
 from __future__ import annotations
@@ -92,7 +92,7 @@ def main() -> int:
     ap.add_argument("--partida", default=str(MPC / "tmp" / "portada-arriba.json"))
     ap.add_argument("--segundos", type=float, default=6.0)
     ap.add_argument("--partida-seg", type=float, default=5.0, help="segundos que dura la partida en el bucle")
-    ap.add_argument("--fundido", type=int, default=14)
+    ap.add_argument("--fundido", type=int, default=0, help="0: una sola pasada (el carrusel cambia al acabar el vídeo)")
     ap.add_argument("--procesos", type=int, default=4)
     args = ap.parse_args()
 
