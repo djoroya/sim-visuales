@@ -11,8 +11,12 @@
   #hud h1 { margin: 0 0 .35em; font-size: 2.1vw; font-weight: 700; letter-spacing: .01em; }
   #hud p { margin: .2em 0; font-size: 1.35vw; color: #c4d2e3; font-variant-numeric: tabular-nums; }
   #hud b { color: #f2c14e; }
-  #barra { position: absolute; right: 5%; top: 20%; height: 45%; width: 1.1vw; border-radius: 4px; }
-  #barra span { position: absolute; left: 1.8vw; font-size: 1.1vw; color: #c4d2e3; white-space: nowrap; transform: translateY(-50%); }
+  #cajaCorte { position: absolute; left: 4.5%; bottom: 4%; width: 40%; }
+  #corte { width: 100%; display: block; }
+  #cajaCorte .nota { font-size: 1.05vw; color: #c4d2e3; margin: .3em 0 0; }
+  #barra { position: absolute; right: 5%; bottom: 10%; width: 24%; height: 1.1vw; border-radius: 4px; }
+  #barra span { position: absolute; top: 1.6vw; font-size: 1.1vw; color: #c4d2e3; white-space: nowrap; transform: translateX(-50%); }
+  #barra .titulo { top: -2.2vw; left: 0; transform: none; }
 </style>
 <script type="importmap">{ "imports": { "three": "/energia/pila-sofc/app/node_modules/three/build/three.module.js" } }</script>
 </head>
@@ -24,7 +28,9 @@
   <div class="bloque" id="dia"><h1>Un día de julio en el tejado</h1>
     <p><b id="reloj">05:00</b> · fuera <span id="Te"></span> · hoja <span id="Th"></span></p>
     <p>las hojas se abren solas con el sol y el calor</p></div>
-  <div id="barra"><span style="top:0%">80 mm</span><span style="top:50%">40</span><span style="top:100%">0</span></div>
+  <div id="cajaCorte"><canvas id="corte"></canvas>
+    <p class="nota">Corte a lo largo de la hoja · <b>espesor exagerado ×50</b>, solo para que se vea (de verdad, 0,2 mm)</p></div>
+  <div id="barra"><span class="titulo">cuánto sube cada punto</span><span style="left:0%">0</span><span style="left:50%">40</span><span style="left:100%">80 mm</span></div>
 </div>
 <script type="module" src="./escena.js"></script>
 </body>

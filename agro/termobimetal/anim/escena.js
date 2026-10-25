@@ -43,7 +43,7 @@ function viridis(u) {
 }
 { // la barra de color del HUD
   const g = PARADAS.map((c, k) => `rgb(${c.map((v) => Math.round(255 * v)).join(",")}) ${100 - (100 * k) / (PARADAS.length - 1)}%`).reverse();
-  document.getElementById("barra").style.background = `linear-gradient(to top, ${PARADAS.map((c, k) => `rgb(${c.map((v) => Math.round(255 * v)).join(",")}) ${(100 * k) / (PARADAS.length - 1)}%`).join(",")})`;
+  document.getElementById("barra").style.background = `linear-gradient(to right, ${PARADAS.map((c, k) => `rgb(${c.map((v) => Math.round(255 * v)).join(",")}) ${(100 * k) / (PARADAS.length - 1)}%`).join(",")})`;
 }
 
 /** Deforma la hoja a ΔT (interpola entre los pasos de un grado de CalculiX). Devuelve la subida de la punta. */
@@ -166,13 +166,73 @@ function camaraEn(u) {
   // tejado (curva de Bézier con el punto de control alto) para no atravesar la estructura.
   foco.getWorldPosition(pFoco); pFoco.add(new THREE.Vector3(70, 10, 25).applyQuaternion(faldon.quaternion));
   normal.set(0, 1, 0).applyQuaternion(faldon.quaternion);
-  const cerca = pFoco.clone().add(new THREE.Vector3(95, 125, 175));
+  const cerca = pFoco.clone().add(new THREE.Vector3(140, 180, 255));
   // al final, a lo largo de la cumbrera y un poco por encima del faldón: se ve el perfil de las hojas al curvarse
   const lejos = new THREE.Vector3(1060, 4420, 3600), mira = new THREE.Vector3(620, 4090, 1150);
   const control = pFoco.clone().addScaledVector(normal, 1500).add(new THREE.Vector3(800, 0, 1200));
   const e = suave(u), a1 = 1 - e;
   camara.position.set(0, 0, 0).addScaledVector(cerca, a1 * a1).addScaledVector(control, 2 * a1 * e).addScaledVector(lejos, e * e);
-  camara.lookAt(new THREE.Vector3().lerpVectors(pFoco, mira, Math.pow(e, 0.8)));
+  camara.lookAt(new THREE.Vector3().lerpVectors(pFoco.clone().add(new THREE.Vector3(0, 12, 0)), mira, Math.pow(e, 0.8)));
+  // de cerca, la hoja se desplaza arriba a la derecha para dejar sitio al corte (abajo a la izquierda)
+  camara.translateX(-80 * a1); camara.translateY(-30 * a1);
+}
+
+// ---------- el corte con el espesor exagerado (2D, en un lienzo del HUD)
+const EXAG = 50, lienzo = document.getElementById("corte"), cx = lienzo.getContext("2d");
+lienzo.width = Math.round(W * 0.36); lienzo.height = Math.round(lienzo.width * 0.5);
+const jc = Math.floor(ny / 2);                                         // fila central de la malla
+function dibujaCorte(opacidad) {
+  const Wc = lienzo.width, Hc = lienzo.height;
+  cx.clearRect(0, 0, Wc, Hc);
+  if (opacidad <= 0.01) return;
+  cx.globalAlpha = opacidad;
+  cx.fillStyle = "rgba(13,31,54,0.78)"; cx.strokeStyle = "#2d4466"; cx.lineWidth = 1;
+  cx.beginPath(); cx.roundRect(0.5, 0.5, Wc - 1, Hc - 1, 8); cx.fill(); cx.stroke();
+  // escala: 150 mm de largo en ~70 % del ancho; origen en el empotramiento
+  // escala: cabe la hoja entera (150 mm de largo y hasta ~85 mm de subida); origen en el empotramiento
+  const esc = Math.min((Wc * 0.7) / L, (Hc * 0.62) / 90), ox = Wc * 0.1, oy = Hc * 0.92;
+  const P = (x, z) => [ox + x * esc, oy - z * esc];
+  // línea central (la unión entre capas) y su normal
+  const c = [];
+  for (let i = 0; i <= nx; i++) { const k = id(i, jc); c.push([pos[3 * k], pos[3 * k + 1]]); }
+  const nrm = c.map((_, i) => {
+    const a = c[Math.max(0, i - 1)], d = c[Math.min(nx, i + 1)], tx = d[0] - a[0], tz = d[1] - a[1], m = Math.hypot(tx, tz);
+    return [-tz / m, tx / m];
+  });
+  const h = (hoja.s / 2) * EXAG;                                       // espesor de cada capa, exagerado
+  const capa = (s0, s1) => {
+    cx.beginPath();
+    c.forEach(([x, z], i) => { const [px, py] = P(x + s1 * h * nrm[i][0], z + s1 * h * nrm[i][1]); i ? cx.lineTo(px, py) : cx.moveTo(px, py); });
+    for (let i = nx; i >= 0; i--) { const [px, py] = P(c[i][0] + s0 * h * nrm[i][0], c[i][1] + s0 * h * nrm[i][1]); cx.lineTo(px, py); }
+    cx.closePath();
+  };
+  capa(-1, 0); cx.fillStyle = "#e07a5f"; cx.fill();                   // abajo: la capa activa
+  capa(0, 1); cx.fillStyle = "#9fb3c8"; cx.fill();                    // arriba: la pasiva
+  // elementos: separaciones verticales y los tres niveles de nodos
+  cx.strokeStyle = "rgba(8,17,29,0.4)"; cx.lineWidth = 0.6;
+  for (let i = 0; i <= nx; i += 1) {
+    const [a1, b1] = P(c[i][0] - h * nrm[i][0], c[i][1] - h * nrm[i][1]), [a2, b2] = P(c[i][0] + h * nrm[i][0], c[i][1] + h * nrm[i][1]);
+    cx.beginPath(); cx.moveTo(a1, b1); cx.lineTo(a2, b2); cx.stroke();
+  }
+  cx.fillStyle = "#08111d";
+  for (let i = 0; i <= nx; i += 1) for (const sg of [-1, 0, 1]) {
+    const [px, py] = P(c[i][0] + sg * h * nrm[i][0], c[i][1] + sg * h * nrm[i][1]);
+    cx.beginPath(); cx.arc(px, py, 1.0, 0, 2 * Math.PI); cx.fill();
+  }
+  // empotramiento rayado
+  const [ex, ey] = P(0, 0);
+  cx.fillStyle = "#8a96a6"; cx.fillRect(ex - 14, ey - 22, 14, 44);
+  cx.strokeStyle = "#5b6676"; for (let y = -22; y < 22; y += 7) { cx.beginPath(); cx.moveTo(ex - 14, ey + y + 7); cx.lineTo(ex - 7, ey + y); cx.stroke(); }
+  // rótulos
+  const f = Math.round(Wc / 46);
+  cx.font = `${f}px "Noto Sans", system-ui, sans-serif`; cx.textBaseline = "middle";
+  const lx = Wc * 0.44;
+  cx.fillStyle = "#e07a5f"; cx.fillRect(lx, Hc * 0.1 - f / 2, f, f);
+  cx.fillStyle = "#e8eef6"; cx.fillText("capa activa: se dilata mucho (abajo)", lx + 1.5 * f, Hc * 0.1);
+  cx.fillStyle = "#9fb3c8"; cx.fillRect(lx, Hc * 0.1 + 1.6 * f - f / 2, f, f);
+  cx.fillStyle = "#e8eef6"; cx.fillText("capa pasiva, tipo Invar: casi nada (arriba)", lx + 1.5 * f, Hc * 0.1 + 1.6 * f);
+  cx.fillStyle = "#c4d2e3"; cx.fillText("● nodos: cara de abajo, unión y cara de arriba", lx, Hc * 0.1 + 3.2 * f);
+  cx.globalAlpha = 1;
 }
 
 const $ = (i) => document.getElementById(i);
@@ -206,6 +266,7 @@ function fotograma(t) {
   // HUD
   $("calculix").style.opacity = 1 - tramo(lejos, 0, 0.12);
   $("barra").style.opacity = 1 - tramo(lejos, 0, 0.12);
+  dibujaCorte(1 - tramo(lejos, 0, 0.12)); $("cajaCorte").style.opacity = 1 - tramo(lejos, 0, 0.12);
   $("dia").style.opacity = tramo(lejos, 0.6, 0.95);
   $("dT").textContent = `+${fmt(dT, 1)} K`; $("punta").textContent = `${fmt(punta)} mm`;
   const hh = Math.floor(hora), mm = Math.floor((hora - hh) * 60 / 10) * 10;
