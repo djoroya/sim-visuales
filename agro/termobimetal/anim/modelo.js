@@ -66,8 +66,11 @@ function bilamina(t) {
       texto("aleación de níquel y manganeso: se dilata mucho", x0, yA + h + 2.4 * U, { t: 1.4, color: C.activa });
     }
     if (calor > 0.5 && pega < 0.05) {
-      flecha(x0 + LP + 0.5 * U, yP + h / 2, x0 + LA + 0.3 * U, yP + h / 2, C.ambar, 0.2 * U);
-      texto("sueltas, la de abajo se alarga más", x0 + 30 * U, yP - 1 * U, { t: 1.4, color: C.ambar });
+      // dónde acaba la de arriba, y lo que se alarga de más la de abajo
+      cx.strokeStyle = C.ambar; cx.lineWidth = 1.5; cx.setLineDash([0.6 * U, 0.5 * U]);
+      cx.beginPath(); cx.moveTo(x0 + LP, yP); cx.lineTo(x0 + LP, yA + h + 0.6 * U); cx.stroke(); cx.setLineDash([]);
+      flecha(x0 + LP, yA + h + 0.6 * U, x0 + LA, yA + h + 0.6 * U, C.ambar, 0.2 * U);
+      texto("sueltas, la de abajo se alarga más", x0 + LA, yA + h + 3.2 * U, { t: 1.4, color: C.ambar, alinea: "right" });
     }
     if (pega > 0.9) {                                                // pegadas: una tira de la otra
       for (let k = 0.2; k <= 0.9; k += 0.35) {
