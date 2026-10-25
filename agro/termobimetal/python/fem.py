@@ -58,7 +58,8 @@ def _lineas(ids, n=16):
     return "\n".join(", ".join(str(v) for v in ids[i:i + n]) for i in range(0, len(ids), n))
 
 
-def escribe(trabajo, L, b, s, temps, mat=Bimetal(), nx=40, ny=4, nz_capa=1, presion=None, T0=20.0, inc0=0.1, salida=True):
+def escribe(trabajo, L, b, s, temps, mat=Bimetal(), nx=40, ny=4, nz_capa=1, presion=None, T0=20.0, inc0=0.1, salida=True,
+            imprime="PUNTA"):
     """Entrada de CalculiX. temps: temperaturas uniformes de cada paso (un paso por temperatura).
     presion: MPa sobre la cara de arriba (viento), en un paso final a la última temperatura."""
     nodos, elems, capa = malla(L, b, s, nx, ny, nz_capa)
@@ -66,31 +67,33 @@ def escribe(trabajo, L, b, s, temps, mat=Bimetal(), nx=40, ny=4, nz_capa=1, pres
     arriba = [e for e, ns in elems.items() if all(nodos[n][2] == s for n in ns[4:])]
     # nodos de la punta en el plano medio (z = s/2)
     pm = [n for n, (x, y, z) in nodos.items() if abs(x - L) < 1e-9 and abs(z - s / 2) < 1e-9]
+    medio = [n for n, (x, y, z) in nodos.items() if abs(z - s / 2) < 1e-9]          # superficie media (animación)
     txt = ["*HEADING", f"Termobimetal {L}x{b}x{s} mm", "*NODE"]
     txt += [f"{n}, {x:.9g}, {y:.9g}, {z:.9g}" for n, (x, y, z) in nodos.items()]
     txt += ["*ELEMENT, TYPE=C3D8I, ELSET=TODO"]
     txt += [f"{e}, " + ", ".join(map(str, ns)) for e, ns in elems.items()]
     for nombre in ("ACTIVA", "PASIVA"):
         txt += [f"*ELSET, ELSET={nombre}", _lineas(e for e, c in capa.items() if c == nombre)]
-    txt += ["*NSET, NSET=EMPOTRE", _lineas(empotre), "*NSET, NSET=PUNTA", _lineas(pm), "*NSET, NSET=NALL", _lineas(nodos)]
+    txt += ["*NSET, NSET=EMPOTRE", _lineas(empotre), "*NSET, NSET=PUNTA", _lineas(pm), "*NSET, NSET=MEDIO", _lineas(medio),
+            "*NSET, NSET=NALL", _lineas(nodos)]
     for nombre, alfa in (("ACTIVA", mat.alfa_alta), ("PASIVA", mat.alfa_baja)):
         txt += [f"*MATERIAL, NAME=M{nombre}", "*ELASTIC", f"{mat.E}, {mat.nu}", "*EXPANSION, ZERO=" + f"{T0}", f"{alfa:.6e}",
                 f"*SOLID SECTION, ELSET={nombre}, MATERIAL=M{nombre}"]
     txt += ["*BOUNDARY", "EMPOTRE, 1, 3, 0.0", "*INITIAL CONDITIONS, TYPE=TEMPERATURE", f"NALL, {T0}"]
     for T in temps:
-        txt += ["*STEP, NLGEOM, INC=1000", "*STATIC", f"{inc0}, 1.0, 1e-9, 0.25", "*TEMPERATURE", f"NALL, {T}"] + _salida(salida)
+        txt += ["*STEP, NLGEOM, INC=1000", "*STATIC", f"{inc0}, 1.0, 1e-9, 0.25", "*TEMPERATURE", f"NALL, {T}"] + _salida(salida, imprime)
     if presion is not None:
         txt += ["*STEP, NLGEOM, INC=1000", "*STATIC", f"{inc0}, 1.0, 1e-9, 0.1", "*DLOAD"]
         txt += [f"{e}, P2, {presion:.6e}" for e in arriba]       # cara 2 del C3D8I = la de arriba (nodos 5-8)
-        txt += _salida(salida)
+        txt += _salida(salida, imprime)
     Path(trabajo).parent.mkdir(parents=True, exist_ok=True)
     Path(f"{trabajo}.inp").write_text("\n".join(txt) + "\n")
     return nodos, elems
 
 
-def _salida(fichero):
+def _salida(fichero, imprime="PUNTA"):
     """Lo que se escribe al final de cada paso (FREQUENCY grande: solo el último incremento)."""
-    s = ["*NODE PRINT, NSET=PUNTA, TOTALS=NO, FREQUENCY=100000", "U", "*EL PRINT, ELSET=TODO, FREQUENCY=100000", "S"]
+    s = [f"*NODE PRINT, NSET={imprime}, TOTALS=NO, FREQUENCY=100000", "U", "*EL PRINT, ELSET=TODO, FREQUENCY=100000", "S"]
     if fichero:
         s += ["*NODE FILE, FREQUENCY=100000", "U", "*EL FILE, FREQUENCY=100000", "S"]
     return s + ["*END STEP"]

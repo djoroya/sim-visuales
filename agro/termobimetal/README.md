@@ -15,8 +15,14 @@ HortiMED.
 | `js/barrido.mjs [procesos]` | Barrido en paralelo de estrategias y diseños → `tmp/barrido.json` |
 | `js/serie.mjs`, `python/figuras.py` | Series de las estrategias principales y figuras → `tmp/fig_*.png` |
 | `js/prueba.mjs` | Comprobaciones: semejanza del cambio de forma y viento frente a CalculiX |
+| `python/animacion.py`, `js/anim-dia.mjs` | Datos de la animación: la hoja de CalculiX grado a grado y un día de julio → `tmp/` |
+| `anim/escena.html`, `anim/grabar.mjs` | La animación (three.js): de la malla de CalculiX al tejado; se graba con Playwright y ffmpeg |
 
 CalculiX 2.23 de conda-forge, en local: `conda create -p ../../.conda-ccx -c conda-forge calculix`.
+
+Animación: `python python/animacion.py 0.2 && node js/anim-dia.mjs 189`, servir `sim-visuales` en
+`http://127.0.0.1:4397/` (`python3 -m http.server 4397`) y `node anim/grabar.mjs tmp/fotogramas 24 1600 900`
+(Playwright con Chromium y SwiftShader); luego ffmpeg.
 
 ## El material
 
