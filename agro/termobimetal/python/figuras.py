@@ -18,7 +18,7 @@ RAIZ = Path(__file__).parent.parent
 DATOS, TMP = RAIZ / "datos", RAIZ / "tmp"
 plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.right": False})
 COL = {"cerradas": "#8a8a8a", "motor": "#2f6db3", "cera": "#c9861a", "bimetal": "#c0392b", "bimetal_fina": "#e59a8f", "bimetal_negra": "#222"}
-NOM = {"cerradas": "ventanas cerradas", "motor": "motor (22–26 °C)", "cera": "abridor de cera (20 °C)",
+NOM = {"cerradas": "ventanas cerradas", "motor": "motor (22–26 °C)", "cera": "abridor de cera (22 °C)",
        "bimetal": "termobimetal 0,4 mm, blanco", "bimetal_fina": "termobimetal 0,2 mm (el viento la abre)", "bimetal_negra": "termobimetal negro"}
 
 
@@ -81,14 +81,14 @@ def resumen():
     S = json.loads((TMP / "serie.json").read_text())
     ks = ["cerradas", "motor", "cera", "bimetal", "bimetal_fina", "bimetal_negra"]
     fig, ax = plt.subplots(1, 3, figsize=(11, 3.6))
-    for i, (clave, tit) in enumerate((("h30", "horas por encima de 30 °C"), ("h10", "horas por debajo de 10 °C"), ("fruto", "fruto (g/m² de carbohidrato)"))):
+    for i, (clave, tit) in enumerate((("h32dia", "horas de día por encima de 32 °C"), ("h10", "horas por debajo de 10 °C"), ("fruto", "fruto (g/m² de carbohidrato)"))):
         ax[i].barh(range(len(ks)), [S[k][clave] for k in ks], color=[COL[k] for k in ks])
         ax[i].set_yticks(range(len(ks)), [NOM[k] for k in ks] if i == 0 else [""] * len(ks), fontsize=8)
         ax[i].set_title(tit, fontsize=9); ax[i].invert_yaxis()
         for j, k in enumerate(ks):
             ax[i].text(S[k][clave], j, f" {S[k][clave]:.0f}", va="center", fontsize=8)
-    ax[1].set_xlim(600, 720); ax[2].set_xlim(1800, 2500)
-    fig.suptitle("Invernadero GES con el tiempo de HortiMED (16 feb – 9 ago 2018)", fontsize=10)
+    ax[1].set_xlim(580, 700); ax[2].set_xlim(1400, 2150)
+    fig.suptitle("Invernadero GES (límites de crecimiento de Vanthoor) con el tiempo de HortiMED, 16 feb – 9 ago 2018", fontsize=10)
     fig.tight_layout(); fig.savefig(TMP / "fig_resumen.png", dpi=130)
 
 

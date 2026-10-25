@@ -33,7 +33,7 @@ export const HOJA = {
   k: 43e-6,          // 1/K, curvatura específica (Kanthal 230)
   s: 0.4e-3,         // m, espesor (0,4 mm: el viento la mueve poco; ver experimento)
   L: 0.15,           // m, largo
-  T_c: 15,           // °C, temperatura a la que está plana
+  T_c: 18,           // °C, temperatura a la que está plana
   alfa: 0.1,         // absortancia solar de la cara de arriba (pintura blanca ≈ 0,25; negra ≈ 0,9)
   eps: 0.9,          // emisividad (pintada)
   h_i: 4,            // W/(m² K)

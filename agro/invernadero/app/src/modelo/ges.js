@@ -201,8 +201,9 @@ export function derivadas(t, y, clima, aj = AJUSTES, flujos = null) {
 
   // crecimiento
   const h_buforg_buf = 1 / (1 + Math.exp(s_buforg_buf * (C_buf - 0.05 * C_buf_max)));
-  const h_T_v = 1 / (1 + Math.exp(s_min_T * (T_v - T_k - T_min_v))) / (1 + Math.exp(s_max_T * (T_v - T_k - T_max_v)));
-  const h_T_v24 = 1 / (1 + Math.exp(s_min_T24 * (T_vmean - T_k - T_min_v24))) / (1 + Math.exp(s_max_T24 * (T_vmean - T_k - T_max_v24)));
+  // límites de temperatura del crecimiento: los de GES por defecto; Vanthoor (2011) usa 10/34 y 15/24,5 °C
+  const h_T_v = 1 / (1 + Math.exp(s_min_T * (T_v - T_k - (aj.T_min_v ?? T_min_v)))) / (1 + Math.exp(s_max_T * (T_v - T_k - (aj.T_max_v ?? T_max_v))));
+  const h_T_v24 = 1 / (1 + Math.exp(s_min_T24 * (T_vmean - T_k - (aj.T_min_v24 ?? T_min_v24)))) / (1 + Math.exp(s_max_T24 * (T_vmean - T_k - (aj.T_max_v24 ?? T_max_v24))));
   const r1 = T_vsum / T_sum_end, r2 = (T_vsum - T_sum_end) / T_sum_end;
   const h_T_vsum = 0.5 * (r1 + Math.sqrt(r1 ** 2 + 1e-4)) - 0.5 * (r2 + Math.sqrt(r2 ** 2 + 1e-4));
   const g_T_v24 = (0.047 * (T_vmean - T_k) + 0.06) * (aj.factorHidrico ?? 1);

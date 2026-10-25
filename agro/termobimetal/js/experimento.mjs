@@ -12,20 +12,27 @@ const t0 = datos.t0 + 86400, tFin = clima.fin - 3600;
 export const VIENTO_MAX = 8;          // m/s: por encima, cerrar (supuesto)
 
 /** Simula una estrategia: apertura(t, c, T_i, estado) → 0–1. Devuelve indicadores. */
-export function simula(estrategia, { paso = 60, serie = false } = {}) {
+export const VANTHOOR = { T_min_v: 10, T_max_v: 34, T_min_v24: 15, T_max_v24: 24.5 };   // límites de crecimiento de Vanthoor (2011)
+
+/** co2Fuera: el CO₂ de dentro se fija al de fuera en cada paso (aísla el efecto de la temperatura). */
+// Por defecto, los límites de Vanthoor: los de GES (6/40, 12/27 °C) castigan poco el calor (ver README).
+export function simula(estrategia, { paso = 60, serie = false, aj = VANTHOOR, co2Fuera = false, mensual = false } = {}) {
   let y = estadoInicial(clima, t0), t = t0;
-  const fr0 = y[15], est = {}, ind = { h30: 0, h35: 0, h10: 0, sT: 0, n: 0, Tmax: -Infinity, sAp: 0, cambios: 0, co2dia: 0, nDia: 0 };
+  const fr0 = y[15], est = {}, ind = { h30: 0, h32dia: 0, h35: 0, h10: 0, sT: 0, n: 0, Tmax: -Infinity, sAp: 0, cambios: 0, co2dia: 0, nDia: 0 };
   const out = [];
   let apAnt = 0;
   while (t < tFin) {
     const c = clima(t), Ti = y[1] - T_K;
     const ap = Math.max(0, Math.min(1, estrategia(t, c, Ti, est, paso)));
-    const A = { ...AJUSTES, latitud: datos.latitud, ventanasModo: "manual", aperturaVentanas: 100 * ap };
+    const A = { ...AJUSTES, ...aj, latitud: datos.latitud, ventanasModo: "manual", aperturaVentanas: 100 * ap };
     if (c[7] + c[15] > 50) {                                   // de día: CO₂ del aire (ppm)
       const fl = {}; derivadas(t, y, clima, A, fl); ind.co2dia += fl.CO2_ppm; ind.nDia++;
     }
     y = pasoROS2((tt, yy) => derivadas(tt, yy, clima, A), t, y, paso); t += paso;
+    if (co2Fuera) y[13] = (4e-4 * 0.044 * 1.013e5) / (8.314 * (c[0] + T_K));
+    if (mensual) { const mes = new Date(Date.UTC(datos.anio, 0, 1) + t * 1000).getUTCMonth(); (ind.mes ??= {})[mes] = y[15]; }
     const T = y[1] - T_K, hrs = paso / 3600;
+    if (T > 32 && c[7] + c[15] > 50) ind.h32dia += hrs;           // de día por encima de 32 °C: riesgo para el cuaje
     if (T > 30) ind.h30 += hrs; if (T > 35) ind.h35 += hrs; if (T < 10) ind.h10 += hrs;
     ind.sT += T; ind.n++; ind.Tmax = Math.max(ind.Tmax, T); ind.sAp += ap; ind.cambios += Math.abs(ap - apAnt); apAnt = ap;
     if (serie && (t % 600 === 0)) out.push([t, T, c[0], ap]);
