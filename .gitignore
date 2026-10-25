@@ -11,6 +11,7 @@ particulas/*/tmp/
 control/*/datos/
 control/*/tmp/
 energia/*/tmp/
+agro/*/tmp/
 *.nw.gz
 
 # visor
@@ -29,3 +30,6 @@ tmp_casadi_compiler_shell*
 *.so
 *.o
 visor/tmp/
+
+# CalculiX (conda-forge) instalado en local
+.conda-ccx/

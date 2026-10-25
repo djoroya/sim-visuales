@@ -1,0 +1,44 @@
+[
+ {
+  "u": 8.0,
+  "q_Pa": 38.4,
+  "caso": "cerrada, succi\u00f3n",
+  "z_sin": 0.0,
+  "z_con": 24.735075600000002,
+  "tension_MPa": 48.044331410875024
+ },
+ {
+  "u": 8.0,
+  "caso": "abierta 20 K, presi\u00f3n",
+  "converge": false
+ },
+ {
+  "u": 8.0,
+  "q_Pa": 38.4,
+  "caso": "abierta 20 K, succi\u00f3n",
+  "z_sin": 56.075694399999996,
+  "z_con": 76.456998,
+  "tension_MPa": 47.823424759542284
+ },
+ {
+  "u": 14.0,
+  "q_Pa": 117.59999999999998,
+  "caso": "cerrada, succi\u00f3n",
+  "z_sin": 0.0,
+  "z_con": 70.5128704,
+  "tension_MPa": 144.38105311522565
+ },
+ {
+  "u": 14.0,
+  "caso": "abierta 20 K, presi\u00f3n",
+  "converge": false
+ },
+ {
+  "u": 14.0,
+  "q_Pa": 117.59999999999998,
+  "caso": "abierta 20 K, succi\u00f3n",
+  "z_sin": 56.075694000000006,
+  "z_con": 105.95882000000002,
+  "tension_MPa": 133.78959656906648
+ }
+]
