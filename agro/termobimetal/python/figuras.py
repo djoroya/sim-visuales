@@ -95,3 +95,33 @@ def resumen():
 if __name__ == "__main__":
     for f in (curvatura, viento, semana, resumen):
         f(); print("ok", f.__name__)
+
+
+def hojas3d(ruta=TMP / "fig_hojas3d.png", dTs=(0, 7.5, 15, 22.5, 30), s=0.2):
+    """Una rejilla de hojas de 150 × 50 × s mm en el tejado, cada fila más caliente: la forma es un arco
+    con la curvatura de la fórmula por el factor de CalculiX (casquete → cilindro)."""
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+    d = json.loads((DATOS / f"hoja-termica-{s}.json").read_text())
+    tab = [(0, 1.0)] + [(f["dT"], f["factor"]) for f in d["filas"]]
+    factor = lambda t: np.interp(t, [a for a, _ in tab], [b for _, b in tab])
+    L, b = 150.0, 50.0
+    fig = plt.figure(figsize=(12, 6.3), facecolor="#0d1f36")
+    ax = fig.add_subplot(projection="3d", facecolor="#0d1f36")
+    cmap = plt.get_cmap("inferno")
+    for fila, dT in enumerate(dTs):
+        kap = factor(dT) * fem.Bimetal().k * dT / s
+        u = np.linspace(0, L, 30)
+        x = np.sin(kap * u) / kap if kap > 0 else u
+        z = (1 - np.cos(kap * u)) / kap if kap > 0 else 0 * u
+        for col in range(6):
+            y0 = col * (b + 6)
+            X0 = fila * (L + 25)
+            polys = [[(X0 + x[i], y0, z[i]), (X0 + x[i + 1], y0, z[i + 1]), (X0 + x[i + 1], y0 + b, z[i + 1]), (X0 + x[i], y0 + b, z[i])] for i in range(len(u) - 1)]
+            pc = Poly3DCollection(polys, facecolor=cmap(0.25 + 0.6 * dT / max(dTs)), edgecolor="none", alpha=0.97)
+            pc.set_clip_on(False); ax.add_collection3d(pc)
+            ax.plot([X0, X0 + L], [y0, y0], [0, 0], color="#4f6a8a", lw=0.6, clip_on=False)      # el hueco del marco
+        ax.text(fila * (L + 25) + L / 2, -45, 0, f"+{dT:g} K", color="#e8eef6", fontsize=15, ha="center")
+    ax.set_xlim(0, len(dTs) * (L + 25)); ax.set_ylim(-60, 6 * 56); ax.set_zlim(0, 130)
+    ax.set_box_aspect((len(dTs) * (L + 25), 6 * 56 + 60, 130), zoom=1.25); ax.view_init(elev=22, azim=-62); ax.set_axis_off()
+    fig.subplots_adjust(0, 0, 1, 1)
+    fig.savefig(ruta, dpi=100, facecolor=fig.get_facecolor())
