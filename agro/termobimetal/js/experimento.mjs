@@ -10,21 +10,28 @@ const datos = JSON.parse(fs.readFileSync(new URL("../../invernadero/app/public/d
 const clima = creaClima(datos), T_K = 273.15;
 const t0 = datos.t0 + 86400, tFin = clima.fin - 3600;
 export const VIENTO_MAX = 8;          // m/s: por encima, cerrar (supuesto)
+// Ventilación de Vanthoor (2011, ec. 8.65; parámetros de su tabla 8.2): ventanas de tejado del 10 % del
+// suelo (25 m² en GES), C_d = 0,75, C_w = 0,09, abertura de 0,68 m de alto.
+export const VENTANAS = { A: 25, Cd: 0.75, Cw: 0.09, h: 0.68 };
 
 /** Simula una estrategia: apertura(t, c, T_i, estado) → 0–1. Devuelve indicadores. */
 export const VANTHOOR = { T_min_v: 10, T_max_v: 34, T_min_v24: 15, T_max_v24: 24.5 };   // límites de crecimiento de Vanthoor (2011)
 
 /** co2Fuera: el CO₂ de dentro se fija al de fuera en cada paso (aísla el efecto de la temperatura). */
 // Por defecto, los límites de Vanthoor: los de GES (6/40, 12/27 °C) castigan poco el calor (ver README).
-export function simula(estrategia, { paso = 60, serie = false, aj = VANTHOOR, co2Fuera = false, mensual = false } = {}) {
+// fisica: ventilación de Vanthoor (por defecto); si no, el caudal fijo de GES (30 renovaciones/h a tope).
+// La estrategia devuelve la apertura (0–1) o { ap, A, h }: A en múltiplos del área de ventanas, h en m.
+export function simula(estrategia, { paso = 60, serie = false, aj = VANTHOOR, co2Fuera = false, mensual = false, fisica = true } = {}) {
   let y = estadoInicial(clima, t0), t = t0;
   const fr0 = y[15], est = {}, ind = { h30: 0, h32dia: 0, h35: 0, h10: 0, sT: 0, n: 0, Tmax: -Infinity, sAp: 0, cambios: 0, co2dia: 0, nDia: 0 };
   const out = [];
   let apAnt = 0;
   while (t < tFin) {
     const c = clima(t), Ti = y[1] - T_K;
-    const ap = Math.max(0, Math.min(1, estrategia(t, c, Ti, est, paso)));
-    const A = { ...AJUSTES, ...aj, latitud: datos.latitud, ventanasModo: "manual", aperturaVentanas: 100 * ap };
+    const v = estrategia(t, c, Ti, est, paso), o = typeof v === "number" ? { ap: v } : v;
+    const ap = Math.max(0, Math.min(1, fisica ? o.ap : o.apGES ?? o.ap));
+    const vent = fisica ? { ...VENTANAS, A: VENTANAS.A * (o.A ?? 1), h: o.h ?? VENTANAS.h } : undefined;
+    const A = { ...AJUSTES, ...aj, latitud: datos.latitud, ventanasModo: "manual", aperturaVentanas: 100 * ap, ventilacion: vent };
     if (c[7] + c[15] > 50) {                                   // de día: CO₂ del aire (ppm)
       const fl = {}; derivadas(t, y, clima, A, fl); ind.co2dia += fl.CO2_ppm; ind.nDia++;
     }
@@ -34,8 +41,8 @@ export function simula(estrategia, { paso = 60, serie = false, aj = VANTHOOR, co
     const T = y[1] - T_K, hrs = paso / 3600;
     if (T > 32 && c[7] + c[15] > 50) ind.h32dia += hrs;           // de día por encima de 32 °C: riesgo para el cuaje
     if (T > 30) ind.h30 += hrs; if (T > 35) ind.h35 += hrs; if (T < 10) ind.h10 += hrs;
-    ind.sT += T; ind.n++; ind.Tmax = Math.max(ind.Tmax, T); ind.sAp += ap; ind.cambios += Math.abs(ap - apAnt); apAnt = ap;
-    if (serie && (t % 600 === 0)) out.push([t, T, c[0], ap]);
+    ind.sT += T; ind.n++; ind.Tmax = Math.max(ind.Tmax, T); ind.sAp += fisica ? ap * (o.A ?? 1) : ap; ind.cambios += Math.abs(ap - apAnt); apAnt = ap;
+    if (serie && (t % 600 === 0)) out.push([t, T, c[0], ap * (fisica ? o.A ?? 1 : 1) * VENTANAS.A]);   // área abierta (m²)
   }
   return { ...ind, Tmedia: ind.sT / ind.n, apMedia: ind.sAp / ind.n, co2: ind.co2dia / ind.nDia, fruto: (y[15] - fr0) * 1000, serie: out };
 }
@@ -54,7 +61,9 @@ export const HR_MAX = 90;             // % de humedad exterior: cota de «llueve
 export const vetado = (c, veto) => (veto && c[2] > VIENTO_MAX) || (veto === "lluvia" && c[3] > HR_MAX);
 export const bimetal = (h, { r = 1, veto = false } = {}) => (t, c, Ti) => {
   if (vetado(c, veto)) return 0;
-  return r * aperturaHoja(h, temperaturaHoja(h, c, Ti), c[2]);
+  const f = aperturaHoja(h, temperaturaHoja(h, c, Ti), c[2]);
+  // r veces el área de ventanas cubierta de hojas, abierta una fracción f; la abertura mide lo que sube la punta
+  return { ap: f, A: r, h: Math.max(f * h.L, 1e-3), apGES: r * f };
 };
 
 if (process.argv[1].endsWith("experimento.mjs")) {

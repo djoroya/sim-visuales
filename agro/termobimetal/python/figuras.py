@@ -67,12 +67,12 @@ def semana():
             d = (a[m, 0] - dia0 * 86400) / 86400
             axs[0, col].plot(d, a[m, 1], color=COL[k], lw=1.2, label=NOM[k])
             if k != "cerradas":
-                axs[1, col].plot(d, 100 * a[m, 3], color=COL[k], lw=1)
+                axs[1, col].plot(d, a[m, 3], color=COL[k], lw=1)
             if k == "motor":
                 axs[0, col].plot(d, a[m, 2], color="#5aa05a", lw=0.8, ls="--", label="fuera")
         axs[0, col].axhline(30, color="#c0392b", lw=0.6, ls=":")
         axs[0, col].set(title=titulo, ylabel="aire de dentro (°C)")
-        axs[1, col].set(xlabel="días", ylabel="apertura (%)")
+        axs[1, col].set(xlabel="días", ylabel="área abierta (m²)")
     axs[0, 0].legend(frameon=False, fontsize=8, ncol=2)
     fig.tight_layout(); fig.savefig(TMP / "fig_semana.png", dpi=130)
 
@@ -88,7 +88,7 @@ def resumen():
         for j, k in enumerate(ks):
             ax[i].text(S[k][clave], j, f" {S[k][clave]:.0f}", va="center", fontsize=8)
     ax[1].set_xlim(580, 700); ax[2].set_xlim(1400, 2150)
-    fig.suptitle("Invernadero GES (límites de crecimiento de Vanthoor) con el tiempo de HortiMED, 16 feb – 9 ago 2018", fontsize=10)
+    fig.suptitle("Invernadero GES (crecimiento y ventilación de Vanthoor) con el tiempo de HortiMED, 16 feb – 9 ago 2018", fontsize=10)
     fig.tight_layout(); fig.savefig(TMP / "fig_resumen.png", dpi=130)
 
 

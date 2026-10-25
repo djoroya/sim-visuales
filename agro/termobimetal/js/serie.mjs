@@ -5,9 +5,9 @@ import { simula, cerradas, motor, cera, bimetal } from "./experimento.mjs";
 import { HOJA } from "./lamina.js";
 const casos = {
   cerradas, motor: motor(false, 22), cera: cera(22),
-  bimetal: bimetal(HOJA, { r: 3 }),                                          // 0,4 mm, blanca, plana a 18 °C
-  bimetal_fina: bimetal({ ...HOJA, s: 0.2e-3 }, { r: 1.5 }),                 // 0,2 mm: el viento la levanta
-  bimetal_negra: bimetal({ ...HOJA, alfa: 0.9 }, { r: 3 }),
+  bimetal: bimetal(HOJA, { r: 4 }),                                          // 0,4 mm, blanca, plana a 18 °C, 4 × área
+  bimetal_fina: bimetal({ ...HOJA, s: 0.2e-3 }, { r: 2 }),                   // 0,2 mm: el viento la levanta
+  bimetal_negra: bimetal({ ...HOJA, alfa: 0.9 }, { r: 4 }),
 };
 const out = {};
 for (const [n, e] of Object.entries(casos)) {

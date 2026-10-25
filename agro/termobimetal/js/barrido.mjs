@@ -9,7 +9,7 @@ export function casos() {
   for (const T0 of [16, 18, 20, 22, 25]) L.push({ tipo: "motor", T0 });
   for (const T0 of [16, 18, 20, 22, 24]) L.push({ tipo: "cera", T0 });
   // la hoja de 0,4 mm (HOJA), que el viento levanta poco y sin tope
-  for (const sombra of [false, true]) for (const alfa of sombra ? [0] : [0.1, 0.25, 0.5, 0.9]) for (const T_c of [12, 15, 18, 21]) for (const r of [1.5, 2, 3])
+  for (const sombra of [false, true]) for (const alfa of sombra ? [0] : [0.1, 0.25, 0.5]) for (const T_c of [12, 15, 18, 21]) for (const r of [2, 3, 4, 6])
     L.push({ tipo: "bimetal", sombra, alfa, T_c, r });
   return L;
 }

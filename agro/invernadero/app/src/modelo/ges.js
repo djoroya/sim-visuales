@@ -182,7 +182,12 @@ export function derivadas(t, y, clima, aj = AJUSTES, flujos = null) {
   const R_a_min = (Math.hypot(Qw, Qs) * crack_length_total) / crack_length / V;
   const dTv = T_i - aj.T_sp_vent, R_a_max = aj.R_a_max;
   const apertura = aperturaVentanas(aj, T_i);
-  const R_a = R_a_min + (R_a_max - R_a_min) * apertura;
+  // Ventanas: caudal fijo de GES (R_a_max a tope), o, con aj.ventilacion = { A, Cd, Cw, h }, el de
+  // Vanthoor (2011, ec. 8.65): área abierta, viento y tiro térmico (h: altura de la abertura).
+  const vf = aj.ventilacion;
+  const R_a = vf
+    ? R_a_min + (apertura * vf.A * vf.Cd) / (2 * V) * Math.sqrt(Math.abs((g * vf.h * (T_i - T_e)) / (T_i + T_e)) + vf.Cw * wind_speed ** 2)
+    : R_a_min + (R_a_max - R_a_min) * apertura;
   const QV_i_e = R_a * V * rho_i * c_i * (T_i - T_e);
   const MW_i_e = R_a * (C_w - C_we), MC_i_e = R_a * (C_c - C_ce);
   // Un mismo actuador alimenta el balance de masa y la contabilidad de recursos.

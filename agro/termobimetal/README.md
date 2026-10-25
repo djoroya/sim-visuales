@@ -42,28 +42,38 @@ hacia 30 Pa (≈ 7 m/s); el cálculo estático encuentra ahí un punto límite (
 cálculo dinámico). Con **0,4 mm**: 3 mm de subida a 8 m/s, 38 MPa a 14 m/s y el punto límite hacia
 87 Pa (≈ 12 m/s; en los datos, 2 horas en seis meses).
 
-**4. El invernadero.** GES con el tiempo de HortiMED (16 feb – 9 ago 2018), 71 estrategias, con los
-límites de crecimiento del tomate de Vanthoor (2011):
+**4. El invernadero.** GES con el tiempo de HortiMED (16 feb – 9 ago 2018), 75 estrategias, con los
+límites de crecimiento del tomate y la ventilación natural de Vanthoor (2011):
 
 | Ventanas | Horas > 30 °C | Horas de día > 32 °C | Horas < 10 °C | Fruto (g/m² de carbohidrato) |
 |---|---|---|---|---|
 | Cerradas (solo rendijas) | 237 | 116 | 625 | 1563 |
-| Motor, mejor consigna (22–26 °C) | 12 | 5 | 635 | 2045 |
-| Abridor de cera, mejor (desde 22 °C) | 12 | 5 | 634 | 2052 |
-| **Termobimetal 0,4 mm, blanco, plano a 18 °C, triple de área** | 15 | 6 | 642 | **2035** |
-| Termobimetal 0,2 mm (el viento lo abre) | 12 | 5 | 661 | 2002 |
-| Termobimetal negro | 12 | 5 | 671 | 1899 |
+| Motor, mejor consigna (22–26 °C) | 12 | 5 | 635 | 2042 |
+| Abridor de cera, mejor (desde 22 °C) | 12 | 5 | 635 | 2047 |
+| **Termobimetal 0,4 mm, blanco, plano a 18 °C, 4 × el área de ventanas** | 12 | 5 | 650 | **2014** |
+| Termobimetal 0,2 mm (el viento lo abre), 2 × área | 12 | 5 | 682 | 1963 |
+| Termobimetal negro, 4 × área | 12 | 5 | 682 | 1865 |
 
-- **El termobimetal se queda a un 1 % del motor y de la cera, sin energía**, pero necesita el triple de
-  área de hojas que de ventanas: abre como mucho un 25–30 %, y en las tardes de julio el invernadero
-  queda ~1,5 °C más caliente que con motor.
+- **El termobimetal se queda a un 1,5 % del motor y de la cera, sin energía**, pero necesita cuatro veces
+  el área de ventanas cubierta de hojas: cada hoja abre como mucho un 10–15 %. En las tardes de julio el
+  invernadero queda menos de 1 °C más caliente que con motor, con un tercio del área abierta.
+- Su defecto son los días fríos y ventosos: el viento levanta las hojas y, además, el caudal crece con el
+  viento; el invernadero ventila de más (15 horas más por debajo de 10 °C).
 - Las hojas **no sienten el aire de dentro**: el viento las enfría mucho más que el aire interior. Siguen
   al sol y al aire de fuera, que es lo que calienta el invernadero; la pintura es la ganancia sobre el
-  sol. Negras, abren en días fríos y soleados (más horas de frío y menos fruto).
+  sol. Negras, abren en días fríos y soleados.
 - **Cerrar con mal tiempo es barato.** Cerrar con viento > 8 m/s no cambia nada; cerrar además con
-  humedad exterior > 90 % (cota de la lluvia, que los datos no traen) baja el fruto un 0,6 %.
-- **El viento sin tope sí cuesta** (hoja de 0,2 mm: más horas de frío y −2 % de fruto). La salida es una
-  hoja más rígida (0,4 mm) y más área de hojas, o un tope mecánico.
+  humedad exterior > 90 % (cota de la lluvia, que los datos no traen) baja el fruto un 0,6 %
+  (calculado con el caudal fijo de GES).
+- **El viento sin tope sí cuesta**: la hoja de 0,2 mm pierde un 2,5 % más de fruto. La salida es una hoja
+  más rígida (0,4 mm) y más área, o un tope mecánico.
+
+**Ventilación.** GES ventila con un caudal fijo (30 renovaciones/h a tope); aquí se usa la ecuación 8.65
+de Vanthoor (2011), tal como la implementa GreenLight (BSD-3): caudal = U·A·C_d/(2·A_suelo)·
+√(g·h·ΔT/(2·T_media) + C_w·u²), con las ventanas del 10 % del suelo, C_d = 0,75, C_w = 0,09 y h = 0,68 m
+(tabla 8.2, Países Bajos). Para las hojas, A = r × área de ventanas y h = lo que sube la punta. El tiro
+pesa poco frente al viento: dar a las ventanas una altura proporcional a la apertura no cambia el motor
+ni la cera. Con el caudal fijo de GES, el bimetal con 4 × área daba 2037 g/m².
 
 **5. Calor y CO₂ en el fruto.** Ventilar sube el fruto por dos razones: enfría y repone el CO₂ que las
 plantas agotan (un invernadero cerrado baja a ~250 ppm de día). GES relaja los límites de crecimiento
@@ -85,14 +95,15 @@ dicen estas cifras; de ahí el indicador de horas de día por encima de 32 °C.
 
 ## Lo que se supone
 
-- GES ventila con un caudal proporcional a la apertura (30 renovaciones/h a tope), sin depender del
-  viento ni del tiro; «área de hojas = r × área de ventanas del motor».
+- Ventilación de Vanthoor (2011) con los parámetros de su tabla 8.2 (Países Bajos) y la infiltración por
+  rendijas de GES; «área de hojas = r × área de ventanas del motor».
 - Temperatura de la hoja en estacionario (constante de tiempo ~30 s), h_e = 5,7 + 3,8 u (McAdams),
   h_i = 4 W/(m² K), ε = 0,9; la hoja, en el tejado SE inclinado 25°.
 - Apertura = subida de la punta / largo (en una fila de hojas iguales, los lados no abren).
 - Viento sobre la hoja con Cp = 1; cera: rampa de 11 K y 15 min de retraso (datos de fabricantes).
 - El tiempo de HortiMED no trae lluvia; la latitud (43° N) es supuesta.
-- Crecimiento del tomate: el de GES (Vanthoor, 2011) con los límites de temperatura de Vanthoor.
+- Crecimiento del tomate: el de GES (Vanthoor, 2011) con los límites de temperatura de Vanthoor. Sin
+  modelo de cuaje: solo el indicador de horas de día por encima de 32 °C.
 
 ## Fuentes
 
@@ -103,3 +114,6 @@ dicen estas cifras; de ahí el indicador de horas de día por encima de 32 °C.
 - B. H. E. Vanthoor et al. (2011), *A methodology for model-based greenhouse design: Part 2*, Biosystems
   Engineering 110, 378–395; límites tal como los implementa Greenhouses-Library (queraltab, TomatoYieldModel.mo).
 - S. Sato, M. M. Peet, J. F. Thomas (2000), cuaje del tomate con calor moderado y crónico (32/26 °C).
+- D. Katzin et al. (2020), GreenLight, Biosystems Engineering 194, 61–81 (código abierto, BSD-3): la
+  ventilación de Vanthoor (`greenhouse_vanthoor_2011_chapter_8.json`).
+- C. Kittas et al. (1995, 1997): ventilación natural por tejado y por tejado y laterales.
